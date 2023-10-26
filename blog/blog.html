@@ -1,36 +1,32 @@
 <!doctype html>
 <html>
 <head>
-  <meta charset="utf-8"/>
-  <title>Marked in the browser</title>
+    <meta charset="utf-8"/>
+    <title>Marked in the browser</title>
 </head>
 <body>
-  <div id="content"></div>
-  <script src="https://cdn.jsdelivr.net/npm/marked/lib/marked.umd.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/marked-highlight/lib/index.umd.js"></script>
-  <script>
-    let markedH = markedHighlight.markedHighlight({
-        langPrefix: 'hljs language-',
-        highlight(code, lang) {
-        const language = hljs.getLanguage(lang) ? lang : 'plaintext';
-        return hljs.highlight(code, { language }).value;
-        }
-    });
-    const m = new marked.Marked(markedH);
+    <div id="content"></div>
+    <script src="https://cdn.jsdelivr.net/npm/marked/lib/marked.umd.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked-highlight/lib/index.umd.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/default.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/swift.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/python.min.js"></script>
 
-    fetch("https://alex.dev/blog/dependency_injection_cover_letter.md")
+    <script>
+        let markedH = markedHighlight.markedHighlight({
+            langPrefix: 'hljs language',
+            highlight(code, lang) {
+                const language = hljs.getLanguage(lang) ? lang : 'plaintext';
+                return hljs.highlight(code, { language }).value;
+            }
+        });
+        const m = new marked.Marked(markedH);
+        
+        fetch("https://alex.dev/blog/dependency_injection_cover_letter.md")
         .then( r => r.text() )
         .then( t => document.getElementById('content').innerHTML =
-      m.parse(t) )
-    // var reader = new FileReader();
-    // const file = new File()
-    // reader.readAsText("dependency_injection_cover_letter.md", "UTF-8");
-    // reader.onload = function (evt) {
-    //     document.getElementById("fileContents").innerHTML = evt.target.result;
-    // }
-
-    // document.getElementById('content').innerHTML =
-    //   m.parse('# Marked in the browser\n\nRendered by **marked**.');
-  </script>
-</body>
+        m.parse(t) )
+     </script>
+ </body>
 </html>
