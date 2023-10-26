@@ -44,20 +44,28 @@ When we’re writing tests, the typical flow is to provide input to a system or 
 There are several ways to do it, and the best one will depend on the language you’re using and the tools available. The basic idea is to make a very thin wrapper around some sort of action you’d like to take that requires a dependency. When I say thin, I mean as little logic as possible. We will not be unit testing our wrapped dependencies [2], so they have to be simple enough that you can be sure they work either just by looking at them, or after a few semi-manual integration tests (more on that later). It should only contain enough code to perform the desired action, and return a value if relevant. We will not be testing the code in our dependency wrappers, so we are biting the bullet of sub 100% test coverage in favor of making testing as easy as possible so that good, relevant, useful tests get written to cover as much of our codebase as possible.
 
 Through the lens of this pattern, your entire codebase can be modeled like this.
-![](images/live_dependency.png)
+
+<img src="images/live_dependency.png" alt="drawing" width="500"/>
+
 You have modularized business logic you’d like to test that makes calls to wrapped dependencies which interact with the dependencies themselves, be it a web server or a clock.
 
 Then, when we wish to place that code under test, we do the following transformation. [4]
-![](images/mocked_dependency.png)
+
+<img src="images/mocked_dependency.png" alt="drawing" width="500"/>
+
 We sub in a mock dependency that does not interact with anything outside our program, and may return mock data if relevant. When our code is under test, we do not actually care if the database in the web server we send a request to has a new row. That’s not our code, so we aren’t going to test it. In that case, we only care how our business logic reacts to errors or successful responses. Knowing that the function that would normally make the request has been called is good enough.
 
 ## Wait, what do I do with the rest of my code?
 The beauty is it doesn’t matter. Use whatever architecture you like for the rest. This pattern is universally applicable.
 
 If you want to understand where dependency injection fits into existing architectures, nearly all the popular ones include some sort of boundary between business logic and dependencies, even if it’s not described in those exact words. The [Ports And Adapters](https://blog.ploeh.dk/2013/12/03/layers-onions-ports-adapters-its-all-the-same/) architecture for example.
-![](images/ports-and-adapters-dependency-graph.png)
+
+<img src="images/ports-and-adapters-dependency-graph.png" alt="drawing" width="500"/>
+
 You see something nearly identical in [The Clean Architecture](https://blog.cleancoder.com/uncle-bob/2012/08/13/the-clean-architecture.html).
-![](images/CleanArchitecture.jpg)
+
+<img src="images/CleanArchitecture.jpg" alt="drawing" width="500"/>
+
 Today we only care about the boundary between the outermost blue circle and the second outermost green circle. That’s where our dependency wrappers live.
 
 ## How do I isolate my dependencies?
