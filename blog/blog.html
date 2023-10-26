@@ -18,7 +18,7 @@
     });
     const m = new marked.Marked(markedH);
 
-    fetch("dependency_injection_cover_letter.md")
+    fetch("https://alex.dev/blog/dependency_injection_cover_letter.md")
         .then( r => r.text() )
         .then( t => document.getElementById('content').innerHTML =
       m.parse(t) )
