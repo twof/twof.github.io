@@ -1,6 +1,6 @@
 # Simple Unit Testing In The Real World With Dependencies
 
-Today we’re going to look at a universal pattern, dependency injection. As I’ve practiced dependency injection at work, I genuinely feel like it’s changed the way I think about software architecture. I’ve previously felt testing was difficult, and folks I’ve talked to have felt the same. I no longer feel that way. This style of dependency injection is well established elsewhere[1], but in the circles I run in, it seems relatively unknown.
+Today we’re going to look at a universal pattern, dependency injection. As I’ve practiced dependency injection at work, I genuinely feel like it’s changed the way I think about software architecture. I’ve previously felt testing was difficult, and folks I’ve talked to have felt the same. I no longer feel that way. This style of dependency injection is well established elsewhere[1], but in the circles I run in it seems relatively unknown.
 
 I’ll be using [pytest](https://github.com/pytest-dev/pytest) and Point Free’s [Swift Dependencies](https://github.com/pointfreeco/swift-dependencies) library throughout.
 
