@@ -1,13 +1,6 @@
 # Simple Unit Testing In The Real World With Dependencies
-I’m an iOS engineer by trade, but as I’ve explored other platforms during my career, I’ve started to find areas where good ideas in software have developed in parallel across different fields. One example of this is the concept of “topics” used in ROS, or the Robotics Operating System. From [the ROS wiki](http://wiki.ros.org/Topics)
 
-> Topics are named buses over which nodes exchange messages. Topics have anonymous publish/subscribe semantics, which decouples the production of information from its consumption. In general, nodes are not aware of who they are communicating with. Instead, nodes that are interested in data subscribe to the relevant topic; nodes that generate data publish to the relevant topic.
-
-Folks coming from a backend or distributed systems background will feel some sense of familiarity reading this. This is nearly identical to microservices communicating via an asynchronous message broker, however because the language is different, when I was talking with my friend in robotics he was under the impression that he knew nothing about how to approach distributed system design. Someone with a backend background would likely feel the same about robotics.
-
-Most development consists of patterns like that, which are applicable agnostic of platform, so it ought to be easy for developers to move between areas of work. A person doing iOS should be able to do embedded systems, backend or robotics.
-
-Today we’re going to look at another universal pattern, dependency injection. As I’ve practiced dependency injection at work, I genuinely feel like it’s changed the way I think about software architecture. I’ve previously felt testing was difficult, and folks I’ve talked to have felt the same. I no longer feel that way. This style of dependency injection is well established elsewhere[1], but in the circles I run in, it seems relatively unknown.
+Today we’re going to look at a universal pattern, dependency injection. As I’ve practiced dependency injection at work, I genuinely feel like it’s changed the way I think about software architecture. I’ve previously felt testing was difficult, and folks I’ve talked to have felt the same. I no longer feel that way. This style of dependency injection is well established elsewhere[1], but in the circles I run in, it seems relatively unknown.
 
 I’ll be using [pytest](https://github.com/pytest-dev/pytest) and Point Free’s [Swift Dependencies](https://github.com/pointfreeco/swift-dependencies) library throughout.
 
@@ -19,9 +12,9 @@ The term “dependency” is hopelessly overloaded, but it’s the term of art u
 2. [Compiler dependencies.](https://www.geeksforgeeks.org/dependency-graph-in-compiler-design/#)
 3. Any unit of work a function delegates to some other system or object. [3]
 
-When I talk about dependencies in this article, I’m not talking about 1 or 2, and we only care about a small subset of 3. 3 is overly inclusive for our goal, which is to do only what we need to get work done and get tests passing, so we’ll only focus on the subset of 3 that’s making our lives especially difficult.
+When I talk about dependencies in this article, I’m not talking about 1 or 2, and we only care about a small subset of 3. 3 is overly inclusive for our goal, which is to do only what we need to get work done and get tests passing, so we’ll only focus on the subset of 3 that’s making testing especially difficult.
 
-The dependencies we care about are the things that are difficult to test. These dependencies usually reach outside of your program or run code that doesn’t belong to you. Here’s a non-exhaustive list of typical difficult dependencies:
+The dependencies we care about are the things that are difficult to test. These dependencies usually reach outside of your program or run code that doesn’t belong to you. Here’s a non-exhaustive list of typical problem dependencies:
 - A web server
 - Time/clocks
 - Random number generators
@@ -41,19 +34,19 @@ We can split dependencies into two general categories.
 When we’re writing tests, the typical flow is to provide input to a system or function, and assert against the expected output. Dependencies break this by introducing uncontrollable input and output. How do we fix this? Dependency isolation.
 
 ## What is dependency isolation?
-There are several ways to do it, and the best one will depend on the language you’re using and the tools available. The basic idea is to make a very thin wrapper around some sort of action you’d like to take that requires a dependency. When I say thin, I mean as little logic as possible. We will not be unit testing our wrapped dependencies [2], so they have to be simple enough that you can be sure they work either just by looking at them, or after a few semi-manual integration tests (more on that later). It should only contain enough code to perform the desired action, and return a value if relevant. We will not be testing the code in our dependency wrappers, so we are biting the bullet of sub 100% test coverage in favor of making testing as easy as possible so that good, relevant, useful tests get written to cover as much of our codebase as possible.
+There are several ways to do it, and the best one will depend on the language you’re using and the tools available. The basic idea is to make a very thin wrapper around some sort of action you’d like to take that requires a dependency. When I say thin, I mean as little logic as possible. We will not be unit testing our wrapped dependencies [2], so they have to be simple enough that you can be sure they work either just by looking at them, or after a few semi-manual integration tests (more on that later). It should only contain enough code to perform the desired action, and return a value if relevant. We will not be testing the code in our dependency wrappers, so we are biting the bullet of sub-100% test coverage. In exchange, testing the rest of our codebase becomes dead simple.
 
 Through the lens of this pattern, your entire codebase can be modeled like this.
 
 <img src="images/live_dependency.png" alt="drawing" width="500"/>
 
-You have modularized business logic you’d like to test that makes calls to wrapped dependencies which interact with the dependencies themselves, be it a web server or a clock.
+You have modularized business logic that makes calls to wrapped dependencies which interact with the dependencies themselves, be it a web server or a clock.
 
 Then, when we wish to place that code under test, we do the following transformation. [4]
 
 <img src="images/mocked_dependency.png" alt="drawing" width="500"/>
 
-We sub in a mock dependency that does not interact with anything outside our program, and may return mock data if relevant. When our code is under test, we do not actually care if the database in the web server we send a request to has a new row. That’s not our code, so we aren’t going to test it. In that case, we only care how our business logic reacts to errors or successful responses. Knowing that the function that would normally make the request has been called is good enough.
+We substitute a mock dependency that does not interact with anything outside our program, and may return mock data if relevant. When our code is under test, we do not actually care if our program creates a new row in our server's database. That’s not our code, so we aren’t going to test it. In that case, we only care how our business logic reacts to errors or successful responses. Knowing that the function that would normally make the request has been called is good enough.
 
 ## Wait, what do I do with the rest of my code?
 The beauty is it doesn’t matter. Use whatever architecture you like for the rest. This pattern is universally applicable.
@@ -87,7 +80,7 @@ def reverse_cat_fact():
 print(reverse_cat_fact())
 ```
 
-This is a very simple version of a function that would normally be somewhat difficult to test. It makes a request to a live server, parses a response and returns a portion of the response in reverse.
+This is a very simple function that would normally be somewhat difficult to test. It makes a request to a live server, parses a response and returns a portion of the response in reverse.
 
 `reverse_cat_fact` is difficult to test because there’s no way to call it without causing a request to a live web server. That request is liable to fail occasionally and to be slow even if it does succeed which breaks our rules of good testing. The success or failure of the test relies on several things outside of our codebase.
 - Is the internet connection to our testing machine functioning
@@ -146,7 +139,7 @@ def test_reverse_cat_fact():
 
 The lessons from this simple example can be applied to any kind of dependency, not just networking calls. This also works with clocks, robotic arms, random number generators, and all of the other dependencies we listed earlier. Parameter injection [is also used in Swift](https://cocoacasts.com/dependency-injection-in-swift), though there are some slight differences due to type safety.
 
-There are however a few significant problems with this approach. If a function has a dependency, then all functions that use that function will also need to have that dependency in their parameter lists. Parameter lists in large code bases with many layers are liable to get very very long. That makes testing more difficult and code more difficult to read.
+There are however a few significant problems with this approach. If a function has a dependency, then all functions that use that function will also need to have that dependency in their parameter lists. Parameter lists in large code bases with many layers are liable to get very very long. That makes code more difficult to test and read.
 
 It also isn’t obvious which dependencies need to be overridden for a test. You either have to override every dependency or risk using live dependencies. If new dependencies are added to a function under test later, existing tests might still run just fine, even if the changes would cause live dependencies to be utilized in the tests.
 
@@ -165,7 +158,7 @@ private enum GetCatFactKey: DependencyKey {
 }
 ```
 
-We register two wrappers. The second will automatically be used in test runs and the first will be used all other times. The `unimplemented` function will automatically fail in test runs to let you know that your test is exercising a dependency you possibly didn’t think would be exercised. If you did intend for that dependency to be exercised, you can override it for that test.
+We register two wrappers. The second will automatically be used in test runs and the first will be used all other times. The `unimplemented` function will automatically fail in test runs to let you know that your test is exercising a dependency you didn't override.
 
 ```swift
 func reverseCatFact() async throws -> String {
@@ -175,7 +168,7 @@ func reverseCatFact() async throws -> String {
 }
 ```
 
-Here we have the Swift translation of our `reverse_cat_fact` Python function. We fetch whichever dependency wrapper is in use instead of passing it in as a parameter, and then from there it’s exactly the same.
+Here we have the Swift translation of our `reverse_cat_fact` Python function. We fetch the appropriate dependency wrapper instead of passing it in as a parameter, and then from there it’s exactly the same.
 
 ```swift
 func testReverseCatFact() async throws {
@@ -205,7 +198,7 @@ func testReverseCatFact() async throws {
 }
 ```
 
-This is a test of input dependencies, but what about output dependencies? How do we know if our `turnOnNuclearReactor` function gets called? In Python this is easy with MagicMocks. You can simply assert against the number of times a function was called. With a little more tooling, you could do the same in Swift.[6]
+This is a test of input dependencies, but what about output dependencies? How do we know if our `turnOnNuclearReactor` function gets called? In Python this is easy with MagicMocks. You can simply assert against the number of times a function was called. With a little more tooling, you can do the same in Swift.[6]
 
 ```swift
 func testNumCalls() async throws {
@@ -233,16 +226,11 @@ func testReverseCatFact() async throws {
 ```
 Since this sort of test uses a live dependency, it should not be included when you run your unit tests, on CI or elsewhere for all the same reasons you shouldn’t use live dependencies in your unit tests. In practice I’ve mostly run these manually and one at a time, but you could create suites of these tests to assist in debugging or collecting diagnostics. Imagine having a suite of these tests you could run every time you set up a new robot. It might make it much easier to find a disconnected component!
 
+My recommendation would be to have CI do periodic runs of integration test suites, so you can still get the benefits of integration tests without all the downsides, most importantly, without blocking developers from merging.
+
 Everything that swift-dependencies does is also possible in Python (the shape and the spelling would change), but the pattern doesn’t seem to be very popular, likely because MagicMocks are so easy to use. In combination with `patch`, no changes need to be made to code at all to make it testable. However there are arguments to be made that digging into function implementation like that is bad practice, and that you should only test input and output. More on that in a future blog post. [7]
 
 Here’s a catalog of libraries for dependency injection in Python: https://github.com/sfermigier/awesome-dependency-injection-in-python
-
-## Why was this guide bilingual?
-Every time I’ve worked on a new platform, I’ve learned something new and brought it wherever I went after. I did some Ruby on Rails work at my first job, and decided I liked its CRUD routing, so [I implemented it in Vapor](https://github.com/twof/VaporCRUDRouter). Vapor was the first time I used reactive streams, and I used them later in my iOS work. When I did backend and robotics work in Python for my last job, I brought learnings from the Swift testing practices we’ve discussed here. Using Python’s MagicMocks inspired [the FunctionSpy library](https://github.com/twof/FunctionSpy) I wrote for this article. Swift Dependencies itself was likely inspired by the authors’ background in web development and math. People who move between fields bring good ideas with them wherever they go, and we’re better off for it. So why is moving between platforms difficult?
-
-For the past few months I’ve been hunting for a job in climate change, and there aren’t many serious companies in that domain hiring iOS engineers. There simply isn’t much you can do to tackle the problem from your phone.[8] The most important work is building physical infrastructure and doing bleeding edge R&D; Things like carbon sequestration, solar and wind farms, fusion research, recycling, low-carbon cement, efficient agricultural tech, and automation for all of the above. The places doing that work are hiring firmware, backend, data, robotics, and embedded systems engineers. Frontend[9] largely isn’t necessary.
-
-That means if we’re going to actually hit climate goals, a significant number of folks currently working as frontend engineers are going to need to be able to switch to something else. I’m okay with learning new things! I’ll be learning new things regardless, but it’s a question of whether I’ll be learning to work around bugs in Apple’s UI frameworks to increase retention metrics by a fraction of a point, or if I’m learning a new platform to save the planet. I’d much rather be doing the latter.
 
 ## Notes
 [1] The Java world has a very popular version of the dependency container pattern in the form of “Spring Beans”, but their terminology and approach is different. People like Dagger on Android. Both are much more OO.
@@ -257,11 +245,7 @@ That means if we’re going to actually hit climate goals, a significant number 
 
 [6] I created [a library](https://github.com/twof/FunctionSpy) to do this.
 
-[7] The TL;DR is that you really ought to also return your side effects. [The Composable Architecture](https://github.com/pointfreeco/swift-composable-architecture) (think spicy [Redux](https://en.wikipedia.org/wiki/Redux_(JavaScript_library)) (think a [reducer](https://en.wikipedia.org/wiki/Fold_(higher-order_function)) + a store)) uses this pattern. Haskel requires this pattern in the form of the IO monad.
-
-[8] I’m open to being convinced otherwise on this, but I haven’t seen it yet. Some of [the companies](https://www.heirloomcarbon.com/) I’m looking at are talking about sequestering upwards of 90 million tons of carbon a year, so that’s where the bar is.
-
-[9] When I say frontend here, I mean both web and mobile, regardless of UI framework.
+[7] The TL;DR is that you really ought to also return your side effects. [The Composable Architecture](https://github.com/pointfreeco/swift-composable-architecture) (think spicy [Redux](https://en.wikipedia.org/wiki/Redux_(JavaScript_library))) uses this pattern. Haskel requires this pattern in the form of the IO monad.
 
 ## End Notes
 Doing research for this I ran into a bunch of other folks who have done similar work on dependency injection and its place in architecture. Here are a few of my favorites:
@@ -270,4 +254,3 @@ Doing research for this I ran into a bunch of other folks who have done similar 
 - [Functional Architecture Is Ports And Adapters](https://blog.ploeh.dk/2016/03/18/functional-architecture-is-ports-and-adapters/) by Mark Seemann
 
 Views get special status in the iOS world in architectures that try to be all encompassing ([MVVM, MVP, MVC, VIPER, etc](https://www.techaheadcorp.com/blog/mvc-vs-mvvm-vs-mvp-vs-viper/)), and get odd treatment when it comes to testing. In my opinion, views are just another dependency, and architectural decisions should follow from that. It’s easier to make this argument now that iOS has [native declarative UI](https://en.wikipedia.org/wiki/SwiftUI).
-
