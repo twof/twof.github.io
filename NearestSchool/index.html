@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Nearest Schools - Walking Distance Finder</title>
+  <link href="https://api.mapbox.com/mapbox-gl-js/v3.18.0/mapbox-gl.css" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header id="header">
+    <h1>Nearest Schools</h1>
+    <p class="subtitle">Find SFUSD schools within a 10-minute walk</p>
+  </header>
+
+  <div id="search-bar">
+    <form id="search-form">
+      <div id="input-wrapper">
+        <input
+          type="text"
+          id="address-input"
+          placeholder="Enter an address (e.g., 123 Main St, Springfield)"
+          autocomplete="off"
+          required
+        >
+        <ul id="autocomplete-list" class="hidden" role="listbox"></ul>
+      </div>
+      <button type="submit" id="search-btn">Search</button>
+    </form>
+    <div id="status-message" class="hidden" role="status" aria-live="polite"></div>
+  </div>
+
+  <main id="content">
+    <div id="map"></div>
+    <aside id="results-panel">
+      <div id="results-header" class="hidden">
+        <h2 id="results-title">Schools Found</h2>
+        <span id="results-count"></span>
+      </div>
+      <ul id="results-list"></ul>
+      <div id="no-results" class="hidden">
+        <p>No SFUSD schools found within a 10-minute walk of this address.</p>
+      </div>
+    </aside>
+  </main>
+
+  <div id="loading-overlay" class="hidden">
+    <div class="spinner"></div>
+    <p>Searching for nearby schools...</p>
+  </div>
+
+  <script src="https://api.mapbox.com/mapbox-gl-js/v3.18.0/mapbox-gl.js"></script>
+  <script src="sfusd-schools.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
