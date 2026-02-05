@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>All SFUSD Schools - Map</title>
+  <link href="https://api.mapbox.com/mapbox-gl-js/v3.18.0/mapbox-gl.css" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      height: 100%;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+                   "Helvetica Neue", Arial, sans-serif;
+      font-size: 16px;
+      color: #1a1a1a;
+    }
+    #header {
+      padding: 16px 24px;
+      background: #ffffff;
+      border-bottom: 1px solid #e0e0e0;
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+    }
+    #header h1 { font-size: 1.4rem; font-weight: 700; }
+    #school-count { font-size: 0.9rem; color: #666; }
+    #map { width: 100%; height: calc(100vh - 60px); }
+    #legend {
+      position: absolute;
+      bottom: 30px;
+      left: 10px;
+      background: #fff;
+      padding: 12px 16px;
+      border-radius: 6px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+      font-size: 0.8rem;
+      z-index: 1;
+      max-height: calc(100vh - 120px);
+      overflow-y: auto;
+    }
+    #legend h3 {
+      margin: 0 0 8px;
+      font-size: 0.85rem;
+      font-weight: 600;
+    }
+    .legend-bar {
+      width: 200px;
+      height: 14px;
+      border-radius: 3px;
+      margin-bottom: 4px;
+    }
+    .legend-labels {
+      display: flex;
+      justify-content: space-between;
+      color: #666;
+      font-size: 0.75rem;
+    }
+    .legend-na {
+      margin-top: 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .legend-na-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+    .legend-cluster {
+      margin-top: 10px;
+      padding-top: 8px;
+      border-top: 1px solid #eee;
+    }
+    .legend-cluster-title {
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+    .legend-cluster-stat {
+      color: #666;
+      font-size: 0.75rem;
+    }
+  </style>
+</head>
+<body>
+  <header id="header">
+    <h1>All SFUSD Schools</h1>
+    <span id="school-count"></span>
+  </header>
+  <div id="map">
+    <div id="legend">
+      <h3>% Socioeconomically Disadvantaged</h3>
+      <div class="legend-bar" style="background: linear-gradient(to right, #2ecc71, #f1c40f, #e74c3c);"></div>
+      <div class="legend-labels">
+        <span>0%</span>
+        <span>50%</span>
+        <span>100%</span>
+      </div>
+      <div class="legend-na">
+        <span class="legend-na-dot" style="background:#999"></span>
+        <span>No data</span>
+      </div>
+      <div id="cluster-legend"></div>
+    </div>
+  </div>
+
+  <script src="https://api.mapbox.com/mapbox-gl-js/v3.18.0/mapbox-gl.js"></script>
+  <script src="sfusd-schools.js"></script>
+  <script>
+    (function () {
+      'use strict';
+
+      mapboxgl.accessToken = 'pk.eyJ1IjoidHdvZiIsImEiOiJjbWt6eXdzZWIwN2toM2dvaG56N2xldXBnIn0.UNp3hM0WgWhlNTCQL6zTdQ';
+
+      var CLUSTERS = [
+        { rank: 1, color: '#b71c1c', schools: ["Commodore Stockton Early Education School","Edwin and Anita Lee Newcomer School","Gordon J. Lau Elementary School","Jean Parker Elementary School","John Yehall Chin Elementary School"], avg_sed: 82.2, route_km: 1.09, sed_students: 849, total: 1059 },
+        { rank: 2, color: '#d32f2f', schools: ["Dr. Charles R. Drew College Preparatory Academy","Dr. George Washington Carver Elementary School","Dr. Martin Luther King, Jr. Academic Middle School","E.R. Taylor Elementary School","Malcolm X Academy Elementary School"], avg_sed: 79.2, route_km: 2.51, sed_students: 1037, total: 1321 },
+        { rank: 3, color: '#e64a19', schools: ["Bryant Elementary School","Cesar Chavez Elementary School","George R. Moscone Elementary School","Hilltop + El Camino Alternativo Schools","John O'Connell High School"], avg_sed: 76.1, route_km: 1.72, sed_students: 1123, total: 1495 },
+        { rank: 4, color: '#ef6c00', schools: ["El Dorado Elementary School","Hillcrest Elementary School","Phillip and Sala Burton Academic High School","Visitacion Valley Elementary School","Visitacion Valley Middle School"], avg_sed: 76.1, route_km: 2.55, sed_students: 1516, total: 2064 },
+        { rank: 5, color: '#f57f17', schools: ["Everett Middle School","Ida B. Wells High School","John Muir Elementary School","Marshall Elementary School","Sanchez Elementary School"], avg_sed: 76.2, route_km: 2.68, sed_students: 1037, total: 1376 },
+        { rank: 6, color: '#9c27b0', schools: ["Bessie Carmichael School (K-5 Campus)","Bessie Carmichael School (6-8 Campus)","Civic Center Secondary School","Redding Elementary School","Tenderloin Community Elementary School"], avg_sed: 73.3, route_km: 3.40, sed_students: 1272, total: 1697 },
+        { rank: 7, color: '#5e35b1', schools: ["Cleveland Elementary School","Junipero Serra Elementary School","Monroe Elementary School","Paul Revere (PreK-8) School","Thurgood Marshall Academic High School"], avg_sed: 72.9, route_km: 3.84, sed_students: 1507, total: 2044 },
+        { rank: 8, color: '#1565c0', schools: ["Balboa High School","Guadalupe Elementary School","James Denman Middle School","June Jordan School for Equity","Sheridan Elementary School"], avg_sed: 70.6, route_km: 4.47, sed_students: 1798, total: 2690 },
+        { rank: 9, color: '#00838f', schools: ["Herbert Hoover Middle School","James Lick Middle School","Mission Education Center","The Academy - San Francisco @ McAteer","Woodside Learning Center"], avg_sed: 69.2, route_km: 4.07, sed_students: 1059, total: 1687 },
+        { rank: 10, color: '#2e7d32', schools: ["Dr. William L. Cobb Elementary School","Francisco Middle School","Galileo Academy of Science & Technology","Marina Middle School","Spring Valley Science Elementary School"], avg_sed: 70.3, route_km: 5.16, sed_students: 2213, total: 3260 }
+      ];
+
+      // Build lookup: school name -> cluster
+      var schoolCluster = {};
+      CLUSTERS.forEach(function (c) {
+        c.schools.forEach(function (name) { schoolCluster[name] = c; });
+      });
+
+      var map = new mapboxgl.Map({
+        container: 'map',
+        style: 'mapbox://styles/mapbox/streets-v12',
+        center: [-122.4194, 37.7749],
+        zoom: 12,
+      });
+      map.addControl(new mapboxgl.NavigationControl(), 'top-right');
+
+      document.getElementById('school-count').textContent =
+        SFUSD_SCHOOLS.length + ' schools';
+
+      // Build cluster legend
+      var legendHtml = '';
+      CLUSTERS.forEach(function (c) {
+        legendHtml += '<div style="display:flex;align-items:center;gap:6px;margin-top:6px">' +
+          '<span style="width:12px;height:12px;border-radius:50%;display:inline-block;background:' + c.color + '"></span>' +
+          '<span>#' + c.rank + ' — ' + c.sed_students.toLocaleString() + ' SED students (' + c.avg_sed + '%)</span></div>';
+      });
+      document.getElementById('cluster-legend').innerHTML =
+        '<div style="margin-top:10px;padding-top:8px;border-top:1px solid #eee">' +
+        '<div style="font-weight:600;margin-bottom:4px">Top-Need Clusters (5 schools each)</div>' +
+        legendHtml + '</div>';
+
+      function sedColor(pct) {
+        if (pct === null || pct === undefined) return '#999';
+        var r, g, b;
+        if (pct <= 50) {
+          var t = pct / 50;
+          r = Math.round(46 + (241 - 46) * t);
+          g = Math.round(204 + (196 - 204) * t);
+          b = Math.round(113 + (15 - 113) * t);
+        } else {
+          var t = (pct - 50) / 50;
+          r = Math.round(241 + (231 - 241) * t);
+          g = Math.round(196 + (76 - 196) * t);
+          b = Math.round(15 + (60 - 15) * t);
+        }
+        return 'rgb(' + r + ',' + g + ',' + b + ')';
+      }
+
+      function escapeHtml(str) {
+        var div = document.createElement('div');
+        div.appendChild(document.createTextNode(str || ''));
+        return div.innerHTML;
+      }
+
+      // Group co-located schools by lat/lng so they share a single marker
+      var locationGroups = {};
+      SFUSD_SCHOOLS.forEach(function (school) {
+        var key = school.lat + ',' + school.lng;
+        if (!locationGroups[key]) locationGroups[key] = [];
+        locationGroups[key].push(school);
+      });
+
+      // Collect coordinates per cluster for hull drawing
+      var clusterCoordSets = {};
+      CLUSTERS.forEach(function (c) { clusterCoordSets[c.rank] = []; });
+
+      Object.keys(locationGroups).forEach(function (key) {
+        var group = locationGroups[key];
+
+        // Find which cluster (if any) this location belongs to
+        var matchedCluster = null;
+        group.forEach(function (s) {
+          if (schoolCluster[s.name]) matchedCluster = schoolCluster[s.name];
+        });
+
+        if (matchedCluster) {
+          clusterCoordSets[matchedCluster.rank].push([group[0].lng, group[0].lat]);
+        }
+
+        var popupHtml = group.map(function (school, i) {
+          var c = schoolCluster[school.name];
+          var enrollLine = school.enrollment !== null
+            ? '<br><span style="font-size:0.85em;color:#666">' + school.enrollment.toLocaleString() + ' students</span>'
+            : '';
+          var sedLine = school.sedPct !== null
+            ? '<br><span style="font-size:0.85em;font-weight:600;color:' + sedColor(school.sedPct) + '">'
+              + school.sedPct + '% socioeconomically disadvantaged</span>'
+            : '<br><span style="font-size:0.85em;color:#999">No SED data</span>';
+          var clusterLabel = c
+            ? '<br><span style="font-size:0.8em;font-weight:700;color:#fff;background:' + c.color + ';padding:1px 6px;border-radius:3px;margin-top:4px;display:inline-block">Cluster #' + c.rank + '</span>'
+            : '';
+          var separator = i > 0
+            ? '<hr style="margin:8px 0;border:none;border-top:1px solid #ddd">'
+            : '';
+          return separator +
+            '<strong>' + escapeHtml(school.name) + '</strong>' +
+            enrollLine + sedLine + clusterLabel;
+        }).join('');
+
+        popupHtml += '<br><span style="font-size:0.85em;color:#666">' + escapeHtml(group[0].address) + '</span>';
+
+        var popup = new mapboxgl.Popup({ offset: 25, maxWidth: '300px' }).setHTML(popupHtml);
+
+        var maxSed = null;
+        group.forEach(function (s) {
+          if (s.sedPct !== null && (maxSed === null || s.sedPct > maxSed)) maxSed = s.sedPct;
+        });
+
+        var markerOpts = matchedCluster
+          ? { color: matchedCluster.color, scale: 1.15 }
+          : { color: sedColor(maxSed) };
+
+        new mapboxgl.Marker(markerOpts)
+          .setLngLat([group[0].lng, group[0].lat])
+          .setPopup(popup)
+          .addTo(map);
+      });
+
+      // Draw convex hulls and labels for each cluster
+      function convexHull(coords) {
+        var pts = coords.slice().sort(function (a, b) { return a[0] - b[0] || a[1] - b[1]; });
+        function cross(O, A, B) { return (A[0]-O[0])*(B[1]-O[1]) - (A[1]-O[1])*(B[0]-O[0]); }
+        var lower = [];
+        for (var i = 0; i < pts.length; i++) {
+          while (lower.length >= 2 && cross(lower[lower.length-2], lower[lower.length-1], pts[i]) <= 0) lower.pop();
+          lower.push(pts[i]);
+        }
+        var upper = [];
+        for (var i = pts.length - 1; i >= 0; i--) {
+          while (upper.length >= 2 && cross(upper[upper.length-2], upper[upper.length-1], pts[i]) <= 0) upper.pop();
+          upper.push(pts[i]);
+        }
+        lower.pop(); upper.pop();
+        var hull = lower.concat(upper);
+        hull.push(hull[0]);
+        return hull;
+      }
+
+      function centroid(coords) {
+        var cx = 0, cy = 0;
+        coords.forEach(function (p) { cx += p[0]; cy += p[1]; });
+        return [cx / coords.length, cy / coords.length];
+      }
+
+      map.on('load', function () {
+        CLUSTERS.forEach(function (c) {
+          var coords = clusterCoordSets[c.rank];
+          if (coords.length < 3) return;
+
+          var hull = convexHull(coords);
+          var center = centroid(coords);
+
+          map.addSource('cluster-hull-' + c.rank, {
+            type: 'geojson',
+            data: { type: 'Feature', geometry: { type: 'Polygon', coordinates: [hull] } }
+          });
+          map.addLayer({
+            id: 'cluster-fill-' + c.rank,
+            type: 'fill',
+            source: 'cluster-hull-' + c.rank,
+            paint: { 'fill-color': c.color, 'fill-opacity': 0.1 }
+          });
+          map.addLayer({
+            id: 'cluster-outline-' + c.rank,
+            type: 'line',
+            source: 'cluster-hull-' + c.rank,
+            paint: { 'line-color': c.color, 'line-width': 2, 'line-dasharray': [4, 3] }
+          });
+
+          // Add annotation label with SED student count
+          map.addSource('cluster-label-' + c.rank, {
+            type: 'geojson',
+            data: {
+              type: 'Feature',
+              geometry: { type: 'Point', coordinates: center },
+              properties: { label: '#' + c.rank + ': ' + c.sed_students.toLocaleString() + ' SED' }
+            }
+          });
+          map.addLayer({
+            id: 'cluster-label-' + c.rank,
+            type: 'symbol',
+            source: 'cluster-label-' + c.rank,
+            layout: {
+              'text-field': ['get', 'label'],
+              'text-size': 13,
+              'text-font': ['DIN Pro Bold', 'Arial Unicode MS Bold'],
+              'text-anchor': 'center',
+              'text-allow-overlap': true
+            },
+            paint: {
+              'text-color': c.color,
+              'text-halo-color': '#fff',
+              'text-halo-width': 2
+            }
+          });
+        });
+      });
+    })();
+  </script>
+</body>
+</html>
