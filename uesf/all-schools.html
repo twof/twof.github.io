@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>All SFUSD Schools - Map</title>
+  <link href="https://api.mapbox.com/mapbox-gl-js/v3.18.0/mapbox-gl.css" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      height: 100%;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+                   "Helvetica Neue", Arial, sans-serif;
+      font-size: 16px;
+      color: #1a1a1a;
+    }
+    #header {
+      padding: 16px 24px;
+      background: #ffffff;
+      border-bottom: 1px solid #e0e0e0;
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+    }
+    #header h1 { font-size: 1.4rem; font-weight: 700; }
+    #school-count { font-size: 0.9rem; color: #666; }
+    #map { width: 100%; height: calc(100vh - 60px); }
+    #legend {
+      position: absolute;
+      bottom: 30px;
+      left: 10px;
+      background: #fff;
+      padding: 12px 16px;
+      border-radius: 6px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+      font-size: 0.8rem;
+      z-index: 1;
+    }
+    #legend h3 {
+      margin: 0 0 8px;
+      font-size: 0.85rem;
+      font-weight: 600;
+    }
+    .legend-bar {
+      width: 200px;
+      height: 14px;
+      border-radius: 3px;
+      margin-bottom: 4px;
+    }
+    .legend-labels {
+      display: flex;
+      justify-content: space-between;
+      color: #666;
+      font-size: 0.75rem;
+    }
+    .legend-na {
+      margin-top: 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .legend-na-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: #999;
+      display: inline-block;
+    }
+  </style>
+</head>
+<body>
+  <header id="header">
+    <h1>All SFUSD Schools</h1>
+    <span id="school-count"></span>
+  </header>
+  <div id="map">
+    <div id="legend">
+      <h3>% Socioeconomically Disadvantaged</h3>
+      <div class="legend-bar" style="background: linear-gradient(to right, #2ecc71, #f1c40f, #e74c3c);"></div>
+      <div class="legend-labels">
+        <span>0%</span>
+        <span>50%</span>
+        <span>100%</span>
+      </div>
+      <div class="legend-na">
+        <span class="legend-na-dot"></span>
+        <span>No data</span>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://api.mapbox.com/mapbox-gl-js/v3.18.0/mapbox-gl.js"></script>
+  <script src="sfusd-schools.js"></script>
+  <script>
+    (function () {
+      'use strict';
+
+      mapboxgl.accessToken = 'pk.eyJ1IjoidHdvZiIsImEiOiJjbWt6eXdzZWIwN2toM2dvaG56N2xldXBnIn0.UNp3hM0WgWhlNTCQL6zTdQ';
+
+      var map = new mapboxgl.Map({
+        container: 'map',
+        style: 'mapbox://styles/mapbox/streets-v12',
+        center: [-122.4194, 37.7749],
+        zoom: 12,
+      });
+      map.addControl(new mapboxgl.NavigationControl(), 'top-right');
+
+      document.getElementById('school-count').textContent =
+        SFUSD_SCHOOLS.length + ' schools';
+
+      function sedColor(pct) {
+        if (pct === null || pct === undefined) return '#999';
+        // Green (0%) -> Yellow (50%) -> Red (100%)
+        var r, g, b;
+        if (pct <= 50) {
+          var t = pct / 50;
+          r = Math.round(46 + (241 - 46) * t);
+          g = Math.round(204 + (196 - 204) * t);
+          b = Math.round(113 + (15 - 113) * t);
+        } else {
+          var t = (pct - 50) / 50;
+          r = Math.round(241 + (231 - 241) * t);
+          g = Math.round(196 + (76 - 196) * t);
+          b = Math.round(15 + (60 - 15) * t);
+        }
+        return 'rgb(' + r + ',' + g + ',' + b + ')';
+      }
+
+      SFUSD_SCHOOLS.forEach(function (school) {
+        var sedLine = school.sedPct !== null
+          ? '<br><span style="font-size:0.85em;font-weight:600;color:' + sedColor(school.sedPct) + '">'
+            + school.sedPct + '% socioeconomically disadvantaged</span>'
+          : '<br><span style="font-size:0.85em;color:#999">No SED data</span>';
+
+        var popup = new mapboxgl.Popup({ offset: 25 }).setHTML(
+          '<strong>' + escapeHtml(school.name) + '</strong>' +
+          '<br><span style="font-size:0.85em;color:#666">' + escapeHtml(school.address) + '</span>' +
+          sedLine
+        );
+
+        new mapboxgl.Marker({ color: sedColor(school.sedPct) })
+          .setLngLat([school.lng, school.lat])
+          .setPopup(popup)
+          .addTo(map);
+      });
+
+      function escapeHtml(str) {
+        var div = document.createElement('div');
+        div.appendChild(document.createTextNode(str || ''));
+        return div.innerHTML;
+      }
+    })();
+  </script>
+</body>
+</html>
