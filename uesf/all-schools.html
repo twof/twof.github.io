@@ -204,10 +204,10 @@
 
         var popupHtml = group.map(function (school, i) {
           var c = schoolCluster[school.name];
-          var enrollLine = school.enrollment !== null
+          var enrollLine = school.enrollment != null
             ? '<br><span style="font-size:0.85em;color:#666">' + school.enrollment.toLocaleString() + ' students</span>'
             : '';
-          var sedLine = school.sedPct !== null
+          var sedLine = school.sedPct != null
             ? '<br><span style="font-size:0.85em;font-weight:600;color:' + sedColor(school.sedPct) + '">'
               + school.sedPct + '% socioeconomically disadvantaged</span>'
             : '<br><span style="font-size:0.85em;color:#999">No SED data</span>';
