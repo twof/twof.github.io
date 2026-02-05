@@ -35,6 +35,8 @@
       box-shadow: 0 2px 8px rgba(0,0,0,0.15);
       font-size: 0.8rem;
       z-index: 1;
+      max-height: calc(100vh - 120px);
+      overflow-y: auto;
     }
     #legend h3 {
       margin: 0 0 8px;
@@ -63,8 +65,20 @@
       width: 12px;
       height: 12px;
       border-radius: 50%;
-      background: #999;
       display: inline-block;
+    }
+    .legend-cluster {
+      margin-top: 10px;
+      padding-top: 8px;
+      border-top: 1px solid #eee;
+    }
+    .legend-cluster-title {
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+    .legend-cluster-stat {
+      color: #666;
+      font-size: 0.75rem;
     }
   </style>
 </head>
@@ -83,9 +97,10 @@
         <span>100%</span>
       </div>
       <div class="legend-na">
-        <span class="legend-na-dot"></span>
+        <span class="legend-na-dot" style="background:#999"></span>
         <span>No data</span>
       </div>
+      <div id="cluster-legend"></div>
     </div>
   </div>
 
@@ -96,6 +111,25 @@
       'use strict';
 
       mapboxgl.accessToken = 'pk.eyJ1IjoidHdvZiIsImEiOiJjbWt6eXdzZWIwN2toM2dvaG56N2xldXBnIn0.UNp3hM0WgWhlNTCQL6zTdQ';
+
+      var CLUSTERS = [
+        { rank: 1, color: '#b71c1c', schools: ["Commodore Stockton Early Education School","Edwin and Anita Lee Newcomer School","Gordon J. Lau Elementary School","Marshall Elementary School","Tenderloin Community Elementary School"], avg_sed: 82.7, route_km: 3.51, sed_students: 980, total: 1225 },
+        { rank: 2, color: '#d32f2f', schools: ["Bryant Elementary School","Dr. George Washington Carver Elementary School","Hillcrest Elementary School","Malcolm X Academy Elementary School","Thurgood Marshall Academic High School"], avg_sed: 81.5, route_km: 6.55, sed_students: 984, total: 1219 },
+        { rank: 3, color: '#e64a19', schools: ["Bret Harte Elementary School","Dr. Martin Luther King, Jr. Academic Middle School","E.R. Taylor Elementary School","Visitacion Valley Elementary School","Visitacion Valley Middle School"], avg_sed: 79.6, route_km: 3.72, sed_students: 1399, total: 1760 },
+        { rank: 4, color: '#ef6c00', schools: ["Cesar Chavez Elementary School","George R. Moscone Elementary School","Ida B. Wells High School","John Muir Elementary School","Sanchez Elementary School"], avg_sed: 77.1, route_km: 3.58, sed_students: 1123, total: 1461 },
+        { rank: 5, color: '#f57f17', schools: ["Bessie Carmichael School (K-5 Campus)","Bessie Carmichael School (6-8 Campus)","John Yehall Chin Elementary School","Marina Middle School","Redding Elementary School"], avg_sed: 74.9, route_km: 6.43, sed_students: 1684, total: 2229 },
+        { rank: 6, color: '#9c27b0', schools: ["Cleveland Elementary School","El Dorado Elementary School","Guadalupe Elementary School","June Jordan School for Equity","Monroe Elementary School"], avg_sed: 73.3, route_km: 4.11, sed_students: 1043, total: 1410 },
+        { rank: 7, color: '#5e35b1', schools: ["Downtown High School","Hilltop + El Camino Alternativo Schools","John O'Connell High School","Paul Revere (PreK-8) School","San Francisco International High School"], avg_sed: 72.6, route_km: 3.71, sed_students: 1105, total: 1536 },
+        { rank: 8, color: '#1565c0', schools: ["Aptos Middle School","Herbert Hoover Middle School","Lakeshore Alternative Elementary School","Sheridan Elementary School","Woodside Learning Center"], avg_sed: 72.6, route_km: 6.72, sed_students: 1582, total: 2503 },
+        { rank: 9, color: '#00838f', schools: ["Civic Center Secondary School","Dr. William L. Cobb Elementary School","Francisco Middle School","Jean Parker Elementary School","Spring Valley Science Elementary School"], avg_sed: 71.4, route_km: 4.81, sed_students: 763, total: 1057 },
+        { rank: 10, color: '#2e7d32', schools: ["Buena Vista Horace Mann K-8","Everett Middle School","Junipero Serra Elementary School","Leonard R. Flynn Elementary School","Mission Education Center"], avg_sed: 65.9, route_km: 4.88, sed_students: 1158, total: 1756 }
+      ];
+
+      // Build lookup: school name -> cluster
+      var schoolCluster = {};
+      CLUSTERS.forEach(function (c) {
+        c.schools.forEach(function (name) { schoolCluster[name] = c; });
+      });
 
       var map = new mapboxgl.Map({
         container: 'map',
@@ -108,9 +142,20 @@
       document.getElementById('school-count').textContent =
         SFUSD_SCHOOLS.length + ' schools';
 
+      // Build cluster legend
+      var legendHtml = '';
+      CLUSTERS.forEach(function (c) {
+        legendHtml += '<div style="display:flex;align-items:center;gap:6px;margin-top:6px">' +
+          '<span style="width:12px;height:12px;border-radius:50%;display:inline-block;background:' + c.color + '"></span>' +
+          '<span>#' + c.rank + ' — ' + c.sed_students.toLocaleString() + ' SED students (' + c.avg_sed + '%)</span></div>';
+      });
+      document.getElementById('cluster-legend').innerHTML =
+        '<div style="margin-top:10px;padding-top:8px;border-top:1px solid #eee">' +
+        '<div style="font-weight:600;margin-bottom:4px">Top-Need Clusters (5 schools each)</div>' +
+        legendHtml + '</div>';
+
       function sedColor(pct) {
         if (pct === null || pct === undefined) return '#999';
-        // Green (0%) -> Yellow (50%) -> Red (100%)
         var r, g, b;
         if (pct <= 50) {
           var t = pct / 50;
@@ -126,29 +171,155 @@
         return 'rgb(' + r + ',' + g + ',' + b + ')';
       }
 
-      SFUSD_SCHOOLS.forEach(function (school) {
-        var sedLine = school.sedPct !== null
-          ? '<br><span style="font-size:0.85em;font-weight:600;color:' + sedColor(school.sedPct) + '">'
-            + school.sedPct + '% socioeconomically disadvantaged</span>'
-          : '<br><span style="font-size:0.85em;color:#999">No SED data</span>';
-
-        var popup = new mapboxgl.Popup({ offset: 25 }).setHTML(
-          '<strong>' + escapeHtml(school.name) + '</strong>' +
-          '<br><span style="font-size:0.85em;color:#666">' + escapeHtml(school.address) + '</span>' +
-          sedLine
-        );
-
-        new mapboxgl.Marker({ color: sedColor(school.sedPct) })
-          .setLngLat([school.lng, school.lat])
-          .setPopup(popup)
-          .addTo(map);
-      });
-
       function escapeHtml(str) {
         var div = document.createElement('div');
         div.appendChild(document.createTextNode(str || ''));
         return div.innerHTML;
       }
+
+      // Group co-located schools by lat/lng so they share a single marker
+      var locationGroups = {};
+      SFUSD_SCHOOLS.forEach(function (school) {
+        var key = school.lat + ',' + school.lng;
+        if (!locationGroups[key]) locationGroups[key] = [];
+        locationGroups[key].push(school);
+      });
+
+      // Collect coordinates per cluster for hull drawing
+      var clusterCoordSets = {};
+      CLUSTERS.forEach(function (c) { clusterCoordSets[c.rank] = []; });
+
+      Object.keys(locationGroups).forEach(function (key) {
+        var group = locationGroups[key];
+
+        // Find which cluster (if any) this location belongs to
+        var matchedCluster = null;
+        group.forEach(function (s) {
+          if (schoolCluster[s.name]) matchedCluster = schoolCluster[s.name];
+        });
+
+        if (matchedCluster) {
+          clusterCoordSets[matchedCluster.rank].push([group[0].lng, group[0].lat]);
+        }
+
+        var popupHtml = group.map(function (school, i) {
+          var c = schoolCluster[school.name];
+          var enrollLine = school.enrollment !== null
+            ? '<br><span style="font-size:0.85em;color:#666">' + school.enrollment.toLocaleString() + ' students</span>'
+            : '';
+          var sedLine = school.sedPct !== null
+            ? '<br><span style="font-size:0.85em;font-weight:600;color:' + sedColor(school.sedPct) + '">'
+              + school.sedPct + '% socioeconomically disadvantaged</span>'
+            : '<br><span style="font-size:0.85em;color:#999">No SED data</span>';
+          var clusterLabel = c
+            ? '<br><span style="font-size:0.8em;font-weight:700;color:#fff;background:' + c.color + ';padding:1px 6px;border-radius:3px;margin-top:4px;display:inline-block">Cluster #' + c.rank + '</span>'
+            : '';
+          var separator = i > 0
+            ? '<hr style="margin:8px 0;border:none;border-top:1px solid #ddd">'
+            : '';
+          return separator +
+            '<strong>' + escapeHtml(school.name) + '</strong>' +
+            enrollLine + sedLine + clusterLabel;
+        }).join('');
+
+        popupHtml += '<br><span style="font-size:0.85em;color:#666">' + escapeHtml(group[0].address) + '</span>';
+
+        var popup = new mapboxgl.Popup({ offset: 25, maxWidth: '300px' }).setHTML(popupHtml);
+
+        var maxSed = null;
+        group.forEach(function (s) {
+          if (s.sedPct !== null && (maxSed === null || s.sedPct > maxSed)) maxSed = s.sedPct;
+        });
+
+        var markerOpts = matchedCluster
+          ? { color: matchedCluster.color, scale: 1.15 }
+          : { color: sedColor(maxSed) };
+
+        new mapboxgl.Marker(markerOpts)
+          .setLngLat([group[0].lng, group[0].lat])
+          .setPopup(popup)
+          .addTo(map);
+      });
+
+      // Draw convex hulls and labels for each cluster
+      function convexHull(coords) {
+        var pts = coords.slice().sort(function (a, b) { return a[0] - b[0] || a[1] - b[1]; });
+        function cross(O, A, B) { return (A[0]-O[0])*(B[1]-O[1]) - (A[1]-O[1])*(B[0]-O[0]); }
+        var lower = [];
+        for (var i = 0; i < pts.length; i++) {
+          while (lower.length >= 2 && cross(lower[lower.length-2], lower[lower.length-1], pts[i]) <= 0) lower.pop();
+          lower.push(pts[i]);
+        }
+        var upper = [];
+        for (var i = pts.length - 1; i >= 0; i--) {
+          while (upper.length >= 2 && cross(upper[upper.length-2], upper[upper.length-1], pts[i]) <= 0) upper.pop();
+          upper.push(pts[i]);
+        }
+        lower.pop(); upper.pop();
+        var hull = lower.concat(upper);
+        hull.push(hull[0]);
+        return hull;
+      }
+
+      function centroid(coords) {
+        var cx = 0, cy = 0;
+        coords.forEach(function (p) { cx += p[0]; cy += p[1]; });
+        return [cx / coords.length, cy / coords.length];
+      }
+
+      map.on('load', function () {
+        CLUSTERS.forEach(function (c) {
+          var coords = clusterCoordSets[c.rank];
+          if (coords.length < 3) return;
+
+          var hull = convexHull(coords);
+          var center = centroid(coords);
+
+          map.addSource('cluster-hull-' + c.rank, {
+            type: 'geojson',
+            data: { type: 'Feature', geometry: { type: 'Polygon', coordinates: [hull] } }
+          });
+          map.addLayer({
+            id: 'cluster-fill-' + c.rank,
+            type: 'fill',
+            source: 'cluster-hull-' + c.rank,
+            paint: { 'fill-color': c.color, 'fill-opacity': 0.1 }
+          });
+          map.addLayer({
+            id: 'cluster-outline-' + c.rank,
+            type: 'line',
+            source: 'cluster-hull-' + c.rank,
+            paint: { 'line-color': c.color, 'line-width': 2, 'line-dasharray': [4, 3] }
+          });
+
+          // Add annotation label with SED student count
+          map.addSource('cluster-label-' + c.rank, {
+            type: 'geojson',
+            data: {
+              type: 'Feature',
+              geometry: { type: 'Point', coordinates: center },
+              properties: { label: '#' + c.rank + ': ' + c.sed_students.toLocaleString() + ' SED' }
+            }
+          });
+          map.addLayer({
+            id: 'cluster-label-' + c.rank,
+            type: 'symbol',
+            source: 'cluster-label-' + c.rank,
+            layout: {
+              'text-field': ['get', 'label'],
+              'text-size': 13,
+              'text-font': ['DIN Pro Bold', 'Arial Unicode MS Bold'],
+              'text-anchor': 'center',
+              'text-allow-overlap': true
+            },
+            paint: {
+              'text-color': c.color,
+              'text-halo-color': '#fff',
+              'text-halo-width': 2
+            }
+          });
+        });
+      });
     })();
   </script>
 </body>
