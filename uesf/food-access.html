@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Food Access During SFUSD Strike</title>
+  <link href="https://api.mapbox.com/mapbox-gl-js/v3.18.0/mapbox-gl.css" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      height: 100%;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+                   "Helvetica Neue", Arial, sans-serif;
+      font-size: 16px;
+      color: #1a1a1a;
+    }
+    #header {
+      padding: 12px 24px;
+      background: #ffffff;
+      border-bottom: 1px solid #e0e0e0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    #header h1 { font-size: 1.3rem; font-weight: 700; }
+    #header select {
+      padding: 6px 12px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      font-size: 0.9rem;
+      background: #fff;
+      cursor: pointer;
+    }
+    #container {
+      display: flex;
+      height: calc(100vh - 56px);
+    }
+    #map {
+      flex: 1;
+      position: relative;
+    }
+    #panel {
+      width: 380px;
+      overflow-y: auto;
+      border-left: 1px solid #e0e0e0;
+      background: #fafafa;
+    }
+    #stats {
+      padding: 16px;
+      background: #fff;
+      border-bottom: 1px solid #e0e0e0;
+    }
+    #stats h3 {
+      font-size: 0.95rem;
+      font-weight: 700;
+      margin-bottom: 10px;
+    }
+    .stat-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .stat-box {
+      background: #f5f5f5;
+      padding: 10px;
+      border-radius: 6px;
+    }
+    .stat-value {
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: #2c3e50;
+    }
+    .stat-label {
+      font-size: 0.75rem;
+      color: #666;
+      margin-top: 2px;
+    }
+    #legend-panel {
+      padding: 12px 16px;
+      background: #fff;
+      border-bottom: 1px solid #e0e0e0;
+    }
+    #legend-panel h4 {
+      font-size: 0.85rem;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 4px;
+      font-size: 0.8rem;
+    }
+    .legend-dot {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      display: inline-block;
+      flex-shrink: 0;
+    }
+    .legend-dot.site {
+      width: 16px;
+      height: 16px;
+    }
+    #school-list-header {
+      padding: 12px 16px 8px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: #666;
+    }
+    .school-item {
+      padding: 10px 16px;
+      border-bottom: 1px solid #eee;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .school-item:hover {
+      background: #f0f0f0;
+    }
+    .school-item.active {
+      background: #e3f2fd;
+    }
+    .school-name {
+      font-size: 0.9rem;
+      font-weight: 600;
+    }
+    .school-meta {
+      font-size: 0.78rem;
+      color: #666;
+      margin-top: 3px;
+    }
+    .school-meta .distance { color: #2980b9; font-weight: 500; }
+    .coverage-badge {
+      display: inline-block;
+      padding: 1px 6px;
+      border-radius: 3px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: #fff;
+      margin-left: 4px;
+    }
+
+    /* Map legend overlay */
+    #map-legend {
+      position: absolute;
+      bottom: 30px;
+      left: 10px;
+      background: #fff;
+      padding: 10px 14px;
+      border-radius: 6px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+      font-size: 0.78rem;
+      z-index: 1;
+    }
+    #map-legend h4 {
+      font-size: 0.82rem;
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+    .map-legend-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 3px;
+    }
+    .map-legend-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+
+    @media (max-width: 768px) {
+      #container {
+        flex-direction: column;
+      }
+      #panel {
+        width: 100%;
+        height: 50vh;
+        border-left: none;
+        border-top: 1px solid #e0e0e0;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header id="header">
+    <h1>Food Access During SFUSD Strike</h1>
+    <select id="meal-filter">
+      <option value="all">All meals</option>
+      <option value="lunch_feb9">Lunch - Feb 9</option>
+      <option value="breakfast_feb10">Breakfast - Feb 10 (pickup Feb 9)</option>
+      <option value="lunch_feb10" selected>Lunch - Feb 10</option>
+    </select>
+  </header>
+
+  <div id="container">
+    <div id="map">
+      <div id="map-legend">
+        <h4>School Distance to Nearest Site</h4>
+        <div class="map-legend-item">
+          <span class="map-legend-dot" style="background:#27ae60"></span>
+          <span>&lt; 0.5 mi</span>
+        </div>
+        <div class="map-legend-item">
+          <span class="map-legend-dot" style="background:#f1c40f"></span>
+          <span>~ 1 mi</span>
+        </div>
+        <div class="map-legend-item">
+          <span class="map-legend-dot" style="background:#e74c3c"></span>
+          <span>&gt; 2 mi</span>
+        </div>
+        <div class="map-legend-item">
+          <span class="map-legend-dot" style="background:#999"></span>
+          <span>No SED data</span>
+        </div>
+        <div class="map-legend-item" style="margin-top:6px;padding-top:6px;border-top:1px solid #eee">
+          <span class="map-legend-dot" style="background:#3498db"></span>
+          <span><strong>Food distribution site</strong></span>
+        </div>
+      </div>
+    </div>
+
+    <div id="panel">
+      <div id="stats">
+        <h3>Coverage Summary</h3>
+        <div class="stat-grid">
+          <div class="stat-box">
+            <div class="stat-value" id="stat-sites">0</div>
+            <div class="stat-label">Active Sites</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-value" id="stat-meals">0</div>
+            <div class="stat-label">Total Meal Capacity</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-value" id="stat-sed">0</div>
+            <div class="stat-label">SED Students</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-value" id="stat-coverage">0%</div>
+            <div class="stat-label">Overall Coverage</div>
+          </div>
+        </div>
+      </div>
+      <div id="legend-panel">
+        <h4>Legend</h4>
+        <div class="legend-item">
+          <span class="legend-dot site" style="background:#3498db"></span>
+          Food distribution site
+        </div>
+        <div class="legend-item">
+          <span class="legend-dot" style="background:#27ae60"></span>
+          School &lt; 0.5 mi from site
+        </div>
+        <div class="legend-item">
+          <span class="legend-dot" style="background:#f1c40f"></span>
+          School ~ 1 mi from site
+        </div>
+        <div class="legend-item">
+          <span class="legend-dot" style="background:#e74c3c"></span>
+          School &gt; 2 mi from site
+        </div>
+        <div class="legend-item">
+          <span class="legend-dot" style="background:#999"></span>
+          No SED data
+        </div>
+      </div>
+      <div id="school-list-header">Schools by distance to nearest site</div>
+      <div id="school-list"></div>
+    </div>
+  </div>
+
+  <script src="https://api.mapbox.com/mapbox-gl-js/v3.18.0/mapbox-gl.js"></script>
+  <script src="sfusd-schools.js"></script>
+  <script src="food-sites.js"></script>
+  <script>
+    (function () {
+      'use strict';
+
+      mapboxgl.accessToken = 'pk.eyJ1IjoidHdvZiIsImEiOiJjbWt6eXdzZWIwN2toM2dvaG56N2xldXBnIn0.UNp3hM0WgWhlNTCQL6zTdQ';
+
+      var map = new mapboxgl.Map({
+        container: 'map',
+        style: 'mapbox://styles/mapbox/streets-v12',
+        center: [-122.4194, 37.7749],
+        zoom: 12
+      });
+      map.addControl(new mapboxgl.NavigationControl(), 'top-right');
+
+      var mealFilter = document.getElementById('meal-filter');
+      var schoolListEl = document.getElementById('school-list');
+      var siteMarkers = [];
+      var schoolMarkers = [];
+      var schoolData = []; // current computed data
+
+      // ===== UTILITIES =====
+
+      function escapeHtml(str) {
+        var div = document.createElement('div');
+        div.appendChild(document.createTextNode(str || ''));
+        return div.innerHTML;
+      }
+
+      function haversineDistance(lat1, lon1, lat2, lon2) {
+        var R = 3958.8; // miles
+        var toRad = function(deg) { return deg * Math.PI / 180; };
+        var dLat = toRad(lat2 - lat1);
+        var dLon = toRad(lon2 - lon1);
+        var a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+                Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return R * c;
+      }
+
+      function distanceColor(miles) {
+        if (miles <= 0.5) return '#27ae60';
+        if (miles <= 1.0) {
+          // Interpolate green to yellow
+          var t = (miles - 0.5) / 0.5;
+          var r = Math.round(39 + (241 - 39) * t);
+          var g = Math.round(174 + (196 - 174) * t);
+          var b = Math.round(96 + (15 - 96) * t);
+          return 'rgb(' + r + ',' + g + ',' + b + ')';
+        }
+        if (miles <= 2.0) {
+          // Interpolate yellow to red
+          var t = (miles - 1.0) / 1.0;
+          var r = Math.round(241 + (231 - 241) * t);
+          var g = Math.round(196 + (76 - 196) * t);
+          var b = Math.round(15 + (60 - 15) * t);
+          return 'rgb(' + r + ',' + g + ',' + b + ')';
+        }
+        return '#e74c3c';
+      }
+
+      function coverageBadgeColor(pct) {
+        if (pct >= 75) return '#27ae60';
+        if (pct >= 40) return '#f39c12';
+        return '#e74c3c';
+      }
+
+      // ===== CORE LOGIC =====
+
+      function getActiveSites(meal) {
+        if (meal === 'all') return FOOD_SITES;
+        return FOOD_SITES.filter(function (site) {
+          return site.meals[meal] !== undefined;
+        });
+      }
+
+      function getSiteCapacity(site, meal) {
+        if (meal === 'all') {
+          var total = 0;
+          Object.keys(site.meals).forEach(function (k) {
+            total += site.meals[k].capacity;
+          });
+          return total;
+        }
+        return site.meals[meal] ? site.meals[meal].capacity : 0;
+      }
+
+      function computeCoverage(meal) {
+        var activeSites = getActiveSites(meal);
+
+        // For each school with SED data, find nearest active site + distance
+        var schools = SFUSD_SCHOOLS.filter(function (s) {
+          return s.sedPct !== null && s.enrollment !== null && s.enrollment > 0;
+        }).map(function (school) {
+          var sedStudents = Math.round(school.enrollment * school.sedPct / 100);
+          var nearestSite = null;
+          var nearestDist = Infinity;
+
+          activeSites.forEach(function (site) {
+            var d = haversineDistance(school.lat, school.lng, site.lat, site.lng);
+            if (d < nearestDist) {
+              nearestDist = d;
+              nearestSite = site;
+            }
+          });
+
+          return {
+            name: school.name,
+            address: school.address,
+            lat: school.lat,
+            lng: school.lng,
+            enrollment: school.enrollment,
+            sedPct: school.sedPct,
+            sedStudents: sedStudents,
+            nearestSite: nearestSite,
+            nearestDist: nearestDist,
+            coverage: 0 // computed below
+          };
+        });
+
+        // Group schools by nearest site, compute coverage per group
+        var groups = {};
+        schools.forEach(function (s) {
+          if (!s.nearestSite) return;
+          var key = s.nearestSite.name;
+          if (!groups[key]) {
+            groups[key] = { site: s.nearestSite, schools: [], totalSed: 0 };
+          }
+          groups[key].schools.push(s);
+          groups[key].totalSed += s.sedStudents;
+        });
+
+        Object.keys(groups).forEach(function (key) {
+          var g = groups[key];
+          var cap = getSiteCapacity(g.site, meal);
+          // Allocate capacity to nearest schools first
+          g.schools.sort(function (a, b) { return a.nearestDist - b.nearestDist; });
+          var remaining = cap;
+          g.schools.forEach(function (s) {
+            if (s.sedStudents > 0 && remaining > 0) {
+              var covered = Math.min(remaining, s.sedStudents);
+              s.coverage = Math.round(covered / s.sedStudents * 100);
+              remaining -= covered;
+            } else {
+              s.coverage = 0;
+            }
+          });
+        });
+
+        // Sort by distance (closest first)
+        schools.sort(function (a, b) { return a.nearestDist - b.nearestDist; });
+
+        // Also include schools without SED data
+        var noDataSchools = SFUSD_SCHOOLS.filter(function (s) {
+          return s.sedPct === null || s.enrollment === null || s.enrollment === 0;
+        }).map(function (school) {
+          var nearestSite = null;
+          var nearestDist = Infinity;
+          activeSites.forEach(function (site) {
+            var d = haversineDistance(school.lat, school.lng, site.lat, site.lng);
+            if (d < nearestDist) {
+              nearestDist = d;
+              nearestSite = site;
+            }
+          });
+          return {
+            name: school.name,
+            address: school.address,
+            lat: school.lat,
+            lng: school.lng,
+            enrollment: null,
+            sedPct: null,
+            sedStudents: 0,
+            nearestSite: nearestSite,
+            nearestDist: nearestDist,
+            coverage: null
+          };
+        });
+        noDataSchools.sort(function (a, b) { return a.nearestDist - b.nearestDist; });
+
+        // Aggregate stats
+        var totalSed = 0;
+        var coveredStudents = 0;
+        schools.forEach(function (s) {
+          totalSed += s.sedStudents;
+          coveredStudents += Math.round(s.sedStudents * s.coverage / 100);
+        });
+
+        var totalMealCap = 0;
+        activeSites.forEach(function (site) {
+          totalMealCap += getSiteCapacity(site, meal);
+        });
+
+        var overallCoverage = totalSed > 0 ? Math.round(coveredStudents / totalSed * 100) : 0;
+
+        return {
+          schools: schools.concat(noDataSchools),
+          activeSites: activeSites,
+          totalSed: totalSed,
+          totalMealCap: totalMealCap,
+          overallCoverage: overallCoverage
+        };
+      }
+
+      // ===== RENDERING =====
+
+      function clearMarkers() {
+        siteMarkers.forEach(function (m) { m.remove(); });
+        schoolMarkers.forEach(function (m) { m.remove(); });
+        siteMarkers = [];
+        schoolMarkers = [];
+      }
+
+      function render() {
+        var meal = mealFilter.value;
+        var result = computeCoverage(meal);
+        schoolData = result.schools;
+
+        // Update stats
+        document.getElementById('stat-sites').textContent = result.activeSites.length;
+        document.getElementById('stat-meals').textContent = result.totalMealCap.toLocaleString();
+        document.getElementById('stat-sed').textContent = result.totalSed.toLocaleString();
+        document.getElementById('stat-coverage').textContent = result.overallCoverage + '%';
+
+        // Clear existing markers
+        clearMarkers();
+
+        // Add food site markers (blue, larger)
+        result.activeSites.forEach(function (site) {
+          var cap = getSiteCapacity(site, meal);
+          var mealsHtml = '';
+          if (site.meals.lunch_feb9) mealsHtml += '<br>Lunch Feb 9: ' + site.meals.lunch_feb9.capacity + ' meals';
+          if (site.meals.breakfast_feb10) mealsHtml += '<br>Breakfast Feb 10: ' + site.meals.breakfast_feb10.capacity + ' meals';
+          if (site.meals.lunch_feb10) mealsHtml += '<br>Lunch Feb 10: ' + site.meals.lunch_feb10.capacity + ' meals';
+
+          var popupHtml = '<strong style="color:#3498db">' + escapeHtml(site.name) + '</strong>' +
+            '<br><span style="font-size:0.85em;color:#666">' + escapeHtml(site.address) + '</span>' +
+            '<br><span style="font-size:0.85em;font-weight:600">Capacity: ' + cap + ' meals (' + (meal === 'all' ? 'total' : 'this meal') + ')</span>' +
+            '<div style="font-size:0.8em;color:#555;margin-top:4px">' + mealsHtml + '</div>';
+
+          var popup = new mapboxgl.Popup({ offset: 25, maxWidth: '280px' }).setHTML(popupHtml);
+          var marker = new mapboxgl.Marker({ color: '#3498db', scale: 1.2 })
+            .setLngLat([site.lng, site.lat])
+            .setPopup(popup)
+            .addTo(map);
+          siteMarkers.push(marker);
+        });
+
+        // Group co-located schools
+        var locationGroups = {};
+        schoolData.forEach(function (school, idx) {
+          var key = school.lat + ',' + school.lng;
+          if (!locationGroups[key]) locationGroups[key] = [];
+          locationGroups[key].push({ school: school, index: idx });
+        });
+
+        Object.keys(locationGroups).forEach(function (key) {
+          var group = locationGroups[key];
+          var first = group[0].school;
+
+          // Use the max distance for color (worst case in group)
+          var maxDist = 0;
+          var hasSedData = false;
+          group.forEach(function (g) {
+            if (g.school.nearestDist > maxDist) maxDist = g.school.nearestDist;
+            if (g.school.sedPct !== null) hasSedData = true;
+          });
+
+          var color = hasSedData ? distanceColor(maxDist) : '#999';
+
+          var popupHtml = group.map(function (g, i) {
+            var s = g.school;
+            var separator = i > 0 ? '<hr style="margin:8px 0;border:none;border-top:1px solid #ddd">' : '';
+            var html = separator + '<strong>' + escapeHtml(s.name) + '</strong>';
+
+            if (s.enrollment !== null) {
+              html += '<br><span style="font-size:0.85em;color:#666">' + s.enrollment.toLocaleString() + ' students</span>';
+            }
+            if (s.sedPct !== null) {
+              html += '<br><span style="font-size:0.85em">' + s.sedPct + '% SED (' + s.sedStudents + ' students)</span>';
+            }
+            if (s.nearestSite) {
+              html += '<br><span style="font-size:0.82em;color:#2980b9">' +
+                s.nearestDist.toFixed(2) + ' mi to ' + escapeHtml(s.nearestSite.name) + '</span>';
+            }
+            if (s.coverage !== null) {
+              html += '<br><span style="font-size:0.82em;font-weight:600;color:' +
+                coverageBadgeColor(s.coverage) + '">Coverage: ' + s.coverage + '%</span>';
+            }
+            return html;
+          }).join('');
+
+          popupHtml += '<br><span style="font-size:0.82em;color:#666">' + escapeHtml(first.address) + '</span>';
+
+          var popup = new mapboxgl.Popup({ offset: 25, maxWidth: '300px' }).setHTML(popupHtml);
+          var marker = new mapboxgl.Marker({ color: color })
+            .setLngLat([first.lng, first.lat])
+            .setPopup(popup)
+            .addTo(map);
+
+          // Store indices for click-to-fly
+          marker._schoolIndices = group.map(function (g) { return g.index; });
+          schoolMarkers.push(marker);
+        });
+
+        // Render school list
+        renderSchoolList(schoolData);
+      }
+
+      function renderSchoolList(schools) {
+        schoolListEl.innerHTML = '';
+
+        schools.forEach(function (school, index) {
+          var div = document.createElement('div');
+          div.className = 'school-item';
+          div.dataset.index = index;
+
+          var distStr = school.nearestDist < Infinity
+            ? school.nearestDist.toFixed(2) + ' mi'
+            : 'N/A';
+
+          var siteName = school.nearestSite ? school.nearestSite.name : 'None';
+
+          var coverageHtml = '';
+          if (school.coverage !== null) {
+            coverageHtml = '<span class="coverage-badge" style="background:' +
+              coverageBadgeColor(school.coverage) + '">' + school.coverage + '% coverage</span>';
+          }
+
+          var sedInfo = '';
+          if (school.sedPct !== null) {
+            sedInfo = school.sedStudents + ' SED students (' + school.sedPct + '%)';
+          } else {
+            sedInfo = 'No SED data';
+          }
+
+          div.innerHTML =
+            '<div class="school-name">' + escapeHtml(school.name) + ' ' + coverageHtml + '</div>' +
+            '<div class="school-meta">' +
+              '<span class="distance">' + distStr + '</span> to ' + escapeHtml(siteName) +
+              ' &middot; ' + sedInfo +
+            '</div>';
+
+          div.addEventListener('click', function () {
+            // Highlight in list
+            schoolListEl.querySelectorAll('.school-item').forEach(function (el) {
+              el.classList.remove('active');
+            });
+            div.classList.add('active');
+
+            // Fly to school
+            map.flyTo({ center: [school.lng, school.lat], zoom: 15 });
+
+            // Find and open the marker popup for this school
+            schoolMarkers.forEach(function (m) {
+              if (m._schoolIndices && m._schoolIndices.indexOf(index) !== -1) {
+                if (!m.getPopup().isOpen()) {
+                  m.togglePopup();
+                }
+              }
+            });
+          });
+
+          schoolListEl.appendChild(div);
+        });
+      }
+
+      // ===== EVENTS =====
+
+      mealFilter.addEventListener('change', function () {
+        render();
+      });
+
+      // Initial render
+      map.on('load', function () {
+        render();
+      });
+    })();
+  </script>
+</body>
+</html>
