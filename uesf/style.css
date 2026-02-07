@@ -247,6 +247,14 @@ html, body {
   background: #357abd;
 }
 
+.result-item-far {
+  opacity: 0.6;
+}
+
+.result-item-far:hover {
+  opacity: 1;
+}
+
 #no-results p {
   text-align: center;
   padding: 40px 20px;

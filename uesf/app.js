@@ -179,7 +179,8 @@
         buildSchoolPopupHTML(school)
       );
 
-      const marker = new mapboxgl.Marker({ color: '#27ae60' })
+      const markerColor = school.withinWalk ? '#27ae60' : '#999';
+      const marker = new mapboxgl.Marker({ color: markerColor })
         .setLngLat([school.lng, school.lat])
         .setPopup(popup)
         .addTo(map);
@@ -242,14 +243,15 @@
 
     schools.forEach((school, index) => {
       const li = document.createElement('li');
-      li.className = 'result-item';
+      li.className = 'result-item' + (school.withinWalk ? '' : ' result-item-far');
       li.dataset.index = index;
 
       let innerHtml = `<div class="result-name">${escapeHtml(school.name)}</div>`;
       if (school.address) {
         innerHtml += `<div class="result-address">${escapeHtml(school.address)}</div>`;
       }
-      innerHtml += `<div class="result-distance">~${formatDistance(school.distance)} away</div>`;
+      const walkLabel = school.withinWalk ? ' · within 10-min walk' : '';
+      innerHtml += `<div class="result-distance">~${formatDistance(school.distance)} away${walkLabel}</div>`;
       innerHtml += `<a class="result-select-btn" href="${escapeHtml(buildFormUrl(school.name))}" target="_blank" rel="noopener">Select this school</a>`;
       li.innerHTML = innerHtml;
 
@@ -458,18 +460,13 @@
       // Step 2: Get 10-minute walking isochrone polygon
       const isochroneGeoJSON = await fetchIsochrone(coords.lng, coords.lat);
 
-      // Step 3: Filter SFUSD schools to those inside the isochrone polygon
+      // Step 3: Tag schools inside the isochrone, calculate distance, sort all
       const isochronePolygon = isochroneGeoJSON.features[0].geometry.coordinates[0];
-      const schools = SFUSD_SCHOOLS
-        .filter(school => pointInPolygon([school.lng, school.lat], isochronePolygon))
-        .map(school => ({ ...school }));
-
-      // Step 4: Calculate straight-line distance and sort
-      schools.forEach(school => {
-        school.distance = haversineDistance(
-          coords.lat, coords.lng, school.lat, school.lng
-        );
-      });
+      const schools = SFUSD_SCHOOLS.map(school => ({
+        ...school,
+        distance: haversineDistance(coords.lat, coords.lng, school.lat, school.lng),
+        withinWalk: pointInPolygon([school.lng, school.lat], isochronePolygon),
+      }));
       schools.sort((a, b) => a.distance - b.distance);
 
       // Step 8: Display results
