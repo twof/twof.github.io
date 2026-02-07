@@ -189,39 +189,28 @@
 <body>
   <header id="header">
     <h1>Food Access During SFUSD Strike</h1>
-    <select id="meal-filter">
-      <option value="all">All meals</option>
-      <option value="lunch_feb9">Lunch - Feb 9</option>
-      <option value="breakfast_feb10">Breakfast - Feb 10 (pickup Feb 9)</option>
-      <option value="lunch_feb10" selected>Lunch - Feb 10</option>
-    </select>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <select id="meal-filter">
+        <option value="all">All meals</option>
+        <option value="lunch_feb9">Lunch - Feb 9</option>
+        <option value="breakfast_feb10">Breakfast - Feb 10 (pickup Feb 9)</option>
+        <option value="lunch_feb10" selected>Lunch - Feb 10</option>
+      </select>
+      <select id="color-mode">
+        <option value="distance">Color by distance</option>
+        <option value="coverage">Color by coverage %</option>
+      </select>
+      <div style="display:flex;align-items:center;gap:6px">
+        <label for="spillover" style="font-size:0.85rem;white-space:nowrap">Spillover:</label>
+        <input type="range" id="spillover" min="5" max="100" value="100" step="5" style="width:100px">
+        <span id="spillover-value" style="font-size:0.85rem;font-weight:600;min-width:35px">100%</span>
+      </div>
+    </div>
   </header>
 
   <div id="container">
     <div id="map">
-      <div id="map-legend">
-        <h4>School Distance to Nearest Site</h4>
-        <div class="map-legend-item">
-          <span class="map-legend-dot" style="background:#27ae60"></span>
-          <span>&lt; 0.5 mi</span>
-        </div>
-        <div class="map-legend-item">
-          <span class="map-legend-dot" style="background:#f1c40f"></span>
-          <span>~ 1 mi</span>
-        </div>
-        <div class="map-legend-item">
-          <span class="map-legend-dot" style="background:#e74c3c"></span>
-          <span>&gt; 2 mi</span>
-        </div>
-        <div class="map-legend-item">
-          <span class="map-legend-dot" style="background:#999"></span>
-          <span>No SED data</span>
-        </div>
-        <div class="map-legend-item" style="margin-top:6px;padding-top:6px;border-top:1px solid #eee">
-          <span class="map-legend-dot" style="background:#3498db"></span>
-          <span><strong>Food distribution site</strong></span>
-        </div>
-      </div>
+      <div id="map-legend"></div>
     </div>
 
     <div id="panel">
@@ -246,30 +235,8 @@
           </div>
         </div>
       </div>
-      <div id="legend-panel">
-        <h4>Legend</h4>
-        <div class="legend-item">
-          <span class="legend-dot site" style="background:#3498db"></span>
-          Food distribution site
-        </div>
-        <div class="legend-item">
-          <span class="legend-dot" style="background:#27ae60"></span>
-          School &lt; 0.5 mi from site
-        </div>
-        <div class="legend-item">
-          <span class="legend-dot" style="background:#f1c40f"></span>
-          School ~ 1 mi from site
-        </div>
-        <div class="legend-item">
-          <span class="legend-dot" style="background:#e74c3c"></span>
-          School &gt; 2 mi from site
-        </div>
-        <div class="legend-item">
-          <span class="legend-dot" style="background:#999"></span>
-          No SED data
-        </div>
-      </div>
-      <div id="school-list-header">Schools by distance to nearest site</div>
+      <div id="legend-panel"></div>
+      <div id="school-list-header"></div>
       <div id="school-list"></div>
     </div>
   </div>
@@ -292,7 +259,13 @@
       map.addControl(new mapboxgl.NavigationControl(), 'top-right');
 
       var mealFilter = document.getElementById('meal-filter');
+      var colorMode = document.getElementById('color-mode');
+      var spilloverSlider = document.getElementById('spillover');
+      var spilloverValue = document.getElementById('spillover-value');
       var schoolListEl = document.getElementById('school-list');
+      var mapLegendEl = document.getElementById('map-legend');
+      var legendPanelEl = document.getElementById('legend-panel');
+      var schoolListHeaderEl = document.getElementById('school-list-header');
       var siteMarkers = [];
       var schoolMarkers = [];
       var schoolData = []; // current computed data
@@ -338,10 +311,109 @@
         return '#e74c3c';
       }
 
+      function getSpilloverThreshold() {
+        return parseInt(spilloverSlider.value, 10);
+      }
+
       function coverageBadgeColor(pct) {
-        if (pct >= 75) return '#27ae60';
-        if (pct >= 40) return '#f39c12';
+        var threshold = getSpilloverThreshold();
+        if (pct >= threshold * 0.75) return '#27ae60';
+        if (pct >= threshold * 0.40) return '#f39c12';
         return '#e74c3c';
+      }
+
+      function coverageColor(pct) {
+        // Normalize to 0–100 relative to spillover threshold
+        var threshold = getSpilloverThreshold();
+        var norm = threshold > 0 ? Math.min(pct / threshold, 1) * 100 : 0;
+        // 0 → red, 50 → yellow, 100 → green
+        if (norm <= 50) {
+          var t = norm / 50;
+          var r = Math.round(231 + (241 - 231) * t);
+          var g = Math.round(76 + (196 - 76) * t);
+          var b = Math.round(60 + (15 - 60) * t);
+          return 'rgb(' + r + ',' + g + ',' + b + ')';
+        }
+        var t = (norm - 50) / 50;
+        var r = Math.round(241 + (39 - 241) * t);
+        var g = Math.round(196 + (174 - 196) * t);
+        var b = Math.round(15 + (96 - 15) * t);
+        return 'rgb(' + r + ',' + g + ',' + b + ')';
+      }
+
+      function schoolMarkerColor(school, group) {
+        var mode = colorMode.value;
+        var hasSedData = false;
+        if (group) {
+          group.forEach(function (g) { if (g.school.sedPct !== null) hasSedData = true; });
+        } else {
+          hasSedData = school.sedPct !== null;
+        }
+        if (!hasSedData) return '#999';
+
+        if (mode === 'coverage') {
+          // Use worst (lowest) coverage in co-located group
+          var minCoverage = 100;
+          if (group) {
+            group.forEach(function (g) {
+              if (g.school.coverage !== null && g.school.coverage < minCoverage) minCoverage = g.school.coverage;
+            });
+          } else {
+            minCoverage = school.coverage !== null ? school.coverage : 0;
+          }
+          return coverageColor(minCoverage);
+        }
+        // distance mode
+        var maxDist = 0;
+        if (group) {
+          group.forEach(function (g) { if (g.school.nearestDist > maxDist) maxDist = g.school.nearestDist; });
+        } else {
+          maxDist = school.nearestDist;
+        }
+        return distanceColor(maxDist);
+      }
+
+      function updateLegends() {
+        var mode = colorMode.value;
+        var siteRow = '<div class="map-legend-item" style="margin-top:6px;padding-top:6px;border-top:1px solid #eee">' +
+          '<span class="map-legend-dot" style="background:#3498db"></span>' +
+          '<span><strong>Food distribution site</strong></span></div>';
+        var noDataRow = '<div class="map-legend-item">' +
+          '<span class="map-legend-dot" style="background:#999"></span><span>No SED data</span></div>';
+
+        if (mode === 'distance') {
+          mapLegendEl.innerHTML =
+            '<h4>School Distance to Nearest Site</h4>' +
+            '<div class="map-legend-item"><span class="map-legend-dot" style="background:#27ae60"></span><span>&lt; 0.5 mi</span></div>' +
+            '<div class="map-legend-item"><span class="map-legend-dot" style="background:#f1c40f"></span><span>~ 1 mi</span></div>' +
+            '<div class="map-legend-item"><span class="map-legend-dot" style="background:#e74c3c"></span><span>&gt; 2 mi</span></div>' +
+            noDataRow + siteRow;
+          legendPanelEl.innerHTML =
+            '<h4>Legend</h4>' +
+            '<div class="legend-item"><span class="legend-dot site" style="background:#3498db"></span>Food distribution site</div>' +
+            '<div class="legend-item"><span class="legend-dot" style="background:#27ae60"></span>School &lt; 0.5 mi from site</div>' +
+            '<div class="legend-item"><span class="legend-dot" style="background:#f1c40f"></span>School ~ 1 mi from site</div>' +
+            '<div class="legend-item"><span class="legend-dot" style="background:#e74c3c"></span>School &gt; 2 mi from site</div>' +
+            '<div class="legend-item"><span class="legend-dot" style="background:#999"></span>No SED data</div>';
+          schoolListHeaderEl.textContent = 'Schools by distance to nearest site';
+        } else {
+          var threshold = getSpilloverThreshold();
+          var mid = Math.round(threshold / 2);
+          mapLegendEl.innerHTML =
+            '<h4>School Coverage %</h4>' +
+            '<div class="map-legend-item"><span class="map-legend-dot" style="background:#27ae60"></span><span>\u2265 ' + threshold + '% covered</span></div>' +
+            '<div class="map-legend-item"><span class="map-legend-dot" style="background:#f1c40f"></span><span>~' + mid + '% covered</span></div>' +
+            '<div class="map-legend-item"><span class="map-legend-dot" style="background:#e74c3c"></span><span>0% covered</span></div>' +
+            noDataRow + siteRow;
+          legendPanelEl.innerHTML =
+            '<h4>Legend</h4>' +
+            '<div class="legend-item"><span class="legend-dot site" style="background:#3498db"></span>Food distribution site</div>' +
+            '<div class="legend-item"><span class="legend-dot" style="background:#27ae60"></span>\u2265 ' + threshold + '% of SED students covered</div>' +
+            '<div class="legend-item"><span class="legend-dot" style="background:#f1c40f"></span>~' + mid + '% covered</div>' +
+            '<div class="legend-item"><span class="legend-dot" style="background:#e74c3c"></span>0% covered</div>' +
+            '<div class="legend-item"><span class="legend-dot" style="background:#999"></span>No SED data</div>';
+          schoolListHeaderEl.textContent = 'Schools by coverage (lowest first)';
+        }
       }
 
       // ===== CORE LOGIC =====
@@ -409,20 +481,26 @@
           groups[key].totalSed += s.sedStudents;
         });
 
+        var thresholdFrac = parseInt(spilloverSlider.value, 10) / 100;
+
         Object.keys(groups).forEach(function (key) {
           var g = groups[key];
           var cap = getSiteCapacity(g.site, meal);
-          // Allocate capacity to nearest schools first
+          // Sort by distance to site (nearest first)
           g.schools.sort(function (a, b) { return a.nearestDist - b.nearestDist; });
+          // Allocate up to threshold% per school, nearest first
+          g.schools.forEach(function (s) { s._allocated = 0; });
           var remaining = cap;
           g.schools.forEach(function (s) {
-            if (s.sedStudents > 0 && remaining > 0) {
-              var covered = Math.min(remaining, s.sedStudents);
-              s.coverage = Math.round(covered / s.sedStudents * 100);
-              remaining -= covered;
-            } else {
-              s.coverage = 0;
-            }
+            if (remaining <= 0 || s.sedStudents <= 0) return;
+            var maxForSchool = Math.ceil(s.sedStudents * thresholdFrac);
+            var toAllocate = Math.min(maxForSchool, remaining);
+            s._allocated = toAllocate;
+            remaining -= toAllocate;
+          });
+          // Convert to coverage %
+          g.schools.forEach(function (s) {
+            s.coverage = s.sedStudents > 0 ? Math.round(s._allocated / s.sedStudents * 100) : 0;
           });
         });
 
@@ -537,15 +615,7 @@
           var group = locationGroups[key];
           var first = group[0].school;
 
-          // Use the max distance for color (worst case in group)
-          var maxDist = 0;
-          var hasSedData = false;
-          group.forEach(function (g) {
-            if (g.school.nearestDist > maxDist) maxDist = g.school.nearestDist;
-            if (g.school.sedPct !== null) hasSedData = true;
-          });
-
-          var color = hasSedData ? distanceColor(maxDist) : '#999';
+          var color = schoolMarkerColor(first, group);
 
           var popupHtml = group.map(function (g, i) {
             var s = g.school;
@@ -577,12 +647,25 @@
             .setPopup(popup)
             .addTo(map);
 
-          // Store indices for click-to-fly
-          marker._schoolIndices = group.map(function (g) { return g.index; });
+          // Store coordinates for click-to-fly matching
+          marker._schoolKey = key;
           schoolMarkers.push(marker);
         });
 
-        // Render school list
+        // Sort and render school list based on color mode
+        var mode = colorMode.value;
+        if (mode === 'coverage') {
+          // Sort by coverage ascending (worst first); no-data schools at bottom
+          schoolData.sort(function (a, b) {
+            var aCov = a.coverage !== null ? a.coverage : 101;
+            var bCov = b.coverage !== null ? b.coverage : 101;
+            if (aCov !== bCov) return aCov - bCov;
+            return a.nearestDist - b.nearestDist;
+          });
+        }
+        // Re-index after sort: update locationGroups indices to match new order
+        // (schoolData indices already used for click-to-fly)
+        updateLegends();
         renderSchoolList(schoolData);
       }
 
@@ -631,8 +714,9 @@
             map.flyTo({ center: [school.lng, school.lat], zoom: 15 });
 
             // Find and open the marker popup for this school
+            var schoolKey = school.lat + ',' + school.lng;
             schoolMarkers.forEach(function (m) {
-              if (m._schoolIndices && m._schoolIndices.indexOf(index) !== -1) {
+              if (m._schoolKey === schoolKey) {
                 if (!m.getPopup().isOpen()) {
                   m.togglePopup();
                 }
@@ -647,6 +731,15 @@
       // ===== EVENTS =====
 
       mealFilter.addEventListener('change', function () {
+        render();
+      });
+
+      colorMode.addEventListener('change', function () {
+        render();
+      });
+
+      spilloverSlider.addEventListener('input', function () {
+        spilloverValue.textContent = spilloverSlider.value + '%';
         render();
       });
 
