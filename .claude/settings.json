@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:data.sfgov.org)"
+    ]
+  },
+  "sandbox": {
+    "network": {
+      "allowedDomains": [
+        "data.sfgov.org"
+      ]
+    }
+  }
+}
