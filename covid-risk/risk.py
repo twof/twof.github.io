@@ -296,6 +296,26 @@ GENERAL_IC_VAX_MIX = {
 }
 
 
+# Self-selection factor: probability that an IC individual in the
+# general population will attend this event, relative to a non-IC
+# individual. Pre-pandemic data on this is sparse:
+#   - No study directly measures IC event attendance rates.
+#   - SF-36 social-functioning subscales show ~5-25 point reduction
+#     below general-population norms for various IC subtypes
+#     (Cavallini 2015, Gathmann CVID studies).
+#   - Solid organ transplant recipients >1yr out score close to norms
+#     on most SF-36 domains (6 of 8).
+#   - HSCT patients <1yr: formal medical restriction (~0.1-0.3x).
+#   - CVID: SF-36 social functioning ~15-25 below general norm.
+#   - COVID-era Islam 2021: IC 85.3% avoided crowded places vs 75.4%
+#     non-IC (~10 pp additional during pandemic).
+# The population-weighted pre-pandemic baseline for a typical IC
+# adult is plausibly 0.80-0.90x general population; COVID-era adds
+# another ~0.85x multiplier. Current-era total: ~0.5-0.85x with
+# wide uncertainty. 0.70 is the defensible midpoint.
+DEFAULT_SELF_SELECTION = 0.70
+
+
 def per_event_infection_prob(event, prev, mask_filtration,
                              quanta_percentile="mean"):
     """Return (low, high) P(infection) bracketed by prevalence range."""
@@ -326,7 +346,7 @@ def per_event_hosp_prob(ic, protection, p_inf_low, p_inf_high):
 
 
 def expected_ic_attendees(attendees, age_distribution=DEFAULT_AGE_DISTRIBUTION,
-                          self_selection=1.0):
+                          self_selection=DEFAULT_SELF_SELECTION):
     """Expected number of IC attendees at the event, stratified by severity.
 
     self_selection: multiplier on baseline prevalence reflecting IC
@@ -377,7 +397,7 @@ def aggregate_event_risk(event, prev,
                          age_distribution=DEFAULT_AGE_DISTRIBUTION,
                          ic_mask_mix=DEFAULT_IC_MASK_MIX,
                          ic_vax_mix=DEFAULT_IC_VAX_MIX,
-                         self_selection=1.0):
+                         self_selection=DEFAULT_SELF_SELECTION):
     """Compute expected counts of infections, hospitalizations, and long
     COVID across all IC attendees at the event.
 
@@ -542,13 +562,18 @@ def main():
     print(f"IC severity mix:           {IC_SEVERITY_MIX}")
     print()
 
+    # Self-selection sensitivity: 0.50 = strong avoidance (skewed
+    # severely-IC composition, active treatment), 0.70 = literature
+    # midpoint, 0.85 = near-normal (stable moderate/mild IC dominant).
     scenarios = [
-        ("regimented IC (specialist-guided, self-selected, no selection adj.)",
-         DEFAULT_IC_MASK_MIX, DEFAULT_IC_VAX_MIX, 1.0),
-        ("regimented IC (specialist-guided, with 0.5x self-selection)",
-         DEFAULT_IC_MASK_MIX, DEFAULT_IC_VAX_MIX, 0.5),
-        ("general IC distribution (no selection adj.)",
-         GENERAL_IC_MASK_MIX, GENERAL_IC_VAX_MIX, 1.0),
+        ("regimented IC, self_selection=0.50 (strong avoidance)",
+         DEFAULT_IC_MASK_MIX, DEFAULT_IC_VAX_MIX, 0.50),
+        ("regimented IC, self_selection=0.70 (midpoint, DEFAULT)",
+         DEFAULT_IC_MASK_MIX, DEFAULT_IC_VAX_MIX, 0.70),
+        ("regimented IC, self_selection=0.85 (mild avoidance)",
+         DEFAULT_IC_MASK_MIX, DEFAULT_IC_VAX_MIX, 0.85),
+        ("general IC distribution, self_selection=0.70",
+         GENERAL_IC_MASK_MIX, GENERAL_IC_VAX_MIX, 0.70),
     ]
 
     for label, mask_mix, vax_mix, selection in scenarios:

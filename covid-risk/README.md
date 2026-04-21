@@ -263,6 +263,55 @@ Values in `risk.py` are synthesized midpoints. Each cell carries roughly
   sensitivity analysis. The regimented assumption yields ~6x lower
   per-IC infection risk than the general-population IC distribution.
 
+### IC self-selection into event attendance
+
+Pre-pandemic quantitative data on IC event attendance is sparse. No
+study directly measures "IC attendance at 100-person indoor events."
+The closest proxies and their limitations:
+
+- **Islam et al. 2021 (COVID Impact Survey, n=10,760):** 85.3% of IC
+  adults avoided crowded places vs 75.4% non-IC during early pandemic.
+  Implies ~0.6x attendance ratio during pandemic (crude).
+  https://pmc.ncbi.nlm.nih.gov/articles/PMC8035912/
+
+- **Heesen et al. 2022 (CoCo longitudinal study, n=274):** No pre-
+  pandemic baseline measured; baseline IMET score of 32 compared to
+  IBD reference (not general population).
+  https://pmc.ncbi.nlm.nih.gov/articles/PMC9795223/
+
+- **Cavallini et al. 2015 (SOT social function review):** 6 of 8 SF-36
+  subscales within general-population norms post-transplant; social
+  functioning specifically shows persistent ~5-15 pt reduction vs
+  matched healthy controls.
+  https://journals.sagepub.com/doi/10.1177/0107408315592335
+
+- **Gathmann et al., Baumgartner et al. (CVID QoL, pre-pandemic):**
+  SF-36 social functioning ~15-25 points below general-population norm.
+  https://pubmed.ncbi.nlm.nih.gov/28536745/
+
+- **Tjaden et al. 2022 (n=11, lung transplant):** Qualitative study.
+  Only 2/11 reported pandemic restrictions had "minimal impact"
+  because they were already restricted; the majority experienced
+  significant pandemic disruption.
+  https://pmc.ncbi.nlm.nih.gov/articles/PMC9115456/
+
+- **HSCT/chemo guidelines (multiple):** Medically prescribed crowd
+  avoidance during defined treatment windows (HSCT first year, chemo
+  nadir days 7-14). Not behavioral measurement.
+
+Weighted by IC severity/subtype composition:
+- Severely IC in active treatment: 0.1-0.5x
+- Severely IC stable (>1 year post-transplant, etc.): 0.5-0.85x
+- Moderately IC (biologics, controlled HIV): 0.85-0.95x
+- Mildly IC: 0.95-1.0x
+
+Population-weighted pre-pandemic baseline: ~0.80-0.90x.
+COVID-era additional: ~0.85x multiplier.
+Total current-era: **0.5-0.85x**, defensible midpoint 0.70.
+
+DEFAULT_SELF_SELECTION is set to 0.70; sensitivity analysis across
+0.50-0.85 is recommended given the thin evidence base.
+
 ## Method limitations
 
 - **Well-mixed assumption.** Wells-Riley treats aerosol as uniform in
@@ -328,25 +377,26 @@ mask/vax distribution among IC attendees:
 Per-IC-person weighted infection risk (regimented default:
 90% fit-N95 / 10% casual-N95): **3.3 - 9.8 per million**.
 
-**Per-event aggregate risk (regimented IC, no self-selection):**
+**Per-event aggregate risk across self-selection sensitivity
+(regimented IC, 3.6 expected IC attendees at default 0.70x):**
 
-| Outcome | Expected count | P(>=1 event) |
-|---|---|---|
-| IC attendee infected | 17 - 50 per million | ~1 in 60K - 20K |
-| IC attendee hospitalized (all IC) | 366 ppB - 1.1 per million | ~1 in 2.7M - 910K |
-| IC attendee hospitalized (mod+sev only) | 334 ppB - 1.0 per million | - |
-| IC attendee with long COVID | 1.3 - 3.9 per million | ~1 in 765K - 255K |
+| Self-selection | Expected IC attendees | P(>=1 IC hospitalized) | P(>=1 IC long-COVID) |
+|---|---|---|---|
+| 0.50 (strong avoidance) | 2.57 | 183 - 549 ppB | 654 ppB - 2.0 per million |
+| **0.70 (default)** | **3.60** | **256 - 768 ppB** | **915 ppB - 2.8 per million** |
+| 0.85 (mild avoidance) | 4.38 | 311 - 933 ppB | 1.1 - 3.3 per million |
 
-**Annual totals at monthly cadence (12 events/year):**
+**Annual totals at monthly cadence (0.70 default):**
 
 | Outcome | Expected cases per year |
 |---|---|
-| IC infections | 2.0 - 6.1 per 10,000 (~1 in 1,650 - 4,950) |
-| IC hospitalizations (all IC) | 4.4 - 13.2 per million (~1 in 76K - 227K) |
-| IC long-COVID cases | 15.7 - 47.1 per million (~1 in 21K - 64K) |
+| IC infections | 1.4 - 4.2 per 10,000 (~1 in 2,400 - 7,100) |
+| IC hospitalizations (all IC) | 3.1 - 9.2 per million (~1 in 110K - 325K) |
+| IC long-COVID cases | 11.0 - 33.0 per million (~1 in 30K - 91K) |
 
-Sensitivity: using the general-population IC mask/vax distribution
-instead (GENERAL_IC_MASK_MIX) raises all aggregate risks ~6x. The
+Sensitivity comparison with general (less-regimented) IC distribution
+at 0.70 self-selection: per-IC infection risk jumps ~6x (20-61 per
+million vs 3.3-9.8); aggregate hospitalizations ~10x higher. The
 regimented assumption is material to the numbers.
 
 ### Other key findings
