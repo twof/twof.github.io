@@ -12,27 +12,55 @@ ranges are expressed as low/high bounds.
 """
 
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+
+
+# Buonanno & Morawska 2020 (Env. Int. / Sci Total Env) Table 2:
+# quanta/hr per infectious person at a fixed viral-load distribution.
+# All at "resting" or "light activity" physical level (seated attendees).
+QUANTA_RATES = {
+    # activity:     (median q/hr, 90th percentile q/hr)
+    "breathing":      (0.37,  3.1),   # quiet breathing while listening
+    "speaking":       (5.0,  42.0),   # normal-volume speech
+    "singing_loud":   (32.0, 270.0),  # singing or loud speech
+    "eating":         (3.0,  20.0),   # mostly breathing + brief speech
+}
+
+
+@dataclass
+class ActivitySegment:
+    activity: str
+    minutes: float
 
 
 @dataclass
 class Event:
     attendees: int = 100
     duration_hours: float = 2.0
-    # Basketball court ~ 94 ft x 50 ft x 25 ft ceiling = ~3,300 m^3.
     room_volume_m3: float = 3300.0
-    # ASHRAE 62.1 design guidance for education facilities is 6-8 ACH;
-    # typical older / imperfectly maintained gym often lower.
-    # Use 3 as a conservative default; sweep 1.5-6 for sensitivity.
     air_changes_per_hour: float = 3.0
-    # Quanta per hour per infectious source, averaged over event.
-    # Buonanno 2020: breathing at rest 10.5 q/hr; speaking 320 q/hr.
-    # Mostly-seated audience with amplified speaker + ~10% discussion
-    # bursts at normal volume gives a population-average near 20 q/hr
-    # across infectious attendees with varying viral loads.
-    quanta_per_hour: float = 20.0
-    # ICRP / EPA Exposure Factors Handbook: sedentary adult ~0.5 m^3/hr.
+    # Activity breakdown for a typical infectious attendee over the event.
+    # Defaults: 2-hour meeting = 4 min singing + 25 min discussion
+    # + 10 min eating + 81 min quiet listening.
+    activities: list = field(default_factory=lambda: [
+        ActivitySegment("breathing", 81.0),
+        ActivitySegment("speaking",  25.0),
+        ActivitySegment("singing_loud", 4.0),
+        ActivitySegment("eating",    10.0),
+    ])
+    # ICRP / EPA: sedentary adult ~0.5 m^3/hr.
     breathing_rate_m3_per_hour: float = 0.5
+
+    def quanta_per_hour(self, percentile: str = "median") -> float:
+        """Time-weighted average q/hr across activity segments.
+
+        percentile: 'median' or 'p90'.
+        """
+        idx = 0 if percentile == "median" else 1
+        total_minutes = sum(s.minutes for s in self.activities)
+        weighted = sum(s.minutes * QUANTA_RATES[s.activity][idx]
+                       for s in self.activities)
+        return weighted / total_minutes
 
 
 @dataclass
@@ -92,13 +120,15 @@ P_HOSP_GIVEN_INFECTION = {
 }
 
 
-def per_event_infection_prob(event, prev, mask_filtration):
+def per_event_infection_prob(event, prev, mask_filtration,
+                             quanta_percentile="median"):
     """Return (low, high) P(infection) bracketed by prevalence range."""
     # Wells-Riley steady-state:
     #   C = Q / (ACH * V)
     #   n_per_source = C * breathing * duration
     #   P(inf) = 1 - exp(-N_inf * n_per_source * (1 - mask))
-    C = event.quanta_per_hour / (event.air_changes_per_hour * event.room_volume_m3)
+    q_per_hr = event.quanta_per_hour(quanta_percentile)
+    C = q_per_hr / (event.air_changes_per_hour * event.room_volume_m3)
     n_per_source = C * event.breathing_rate_m3_per_hour * event.duration_hours
     effective_dose = n_per_source * (1 - mask_filtration)
 
@@ -131,39 +161,52 @@ def main():
     event = Event()
     prev = Prevalence()
 
-    C = event.quanta_per_hour / (event.air_changes_per_hour * event.room_volume_m3)
-    n_per_source = C * event.breathing_rate_m3_per_hour * event.duration_hours
+    q_med = event.quanta_per_hour("median")
+    q_p90 = event.quanta_per_hour("p90")
     p_low = prev.community_infectious_low * prev.event_attendable_fraction
     p_high = prev.community_infectious_high * prev.event_attendable_fraction
 
-    print("=== Intermediate values ===")
-    print(f"Quanta concentration:            {C:.6f} quanta/m^3")
-    print(f"Quanta inhaled per infectious:   {n_per_source:.6f}")
+    print("=== Activity breakdown ===")
+    total_min = sum(s.minutes for s in event.activities)
+    for seg in event.activities:
+        med, p90 = QUANTA_RATES[seg.activity]
+        print(f"  {seg.minutes:>5.1f} min {seg.activity:<14} "
+              f"median={med:>5.2f} q/hr  p90={p90:>6.1f} q/hr")
+    print(f"  {'':>5} --- total: {total_min:.0f} min")
+    print()
+    print(f"Time-weighted quanta per infectious attendee:")
+    print(f"  median:          {q_med:.2f} q/hr")
+    print(f"  90th percentile: {q_p90:.2f} q/hr")
+    print()
     print(f"Effective attendee prevalence:   {p_low*100:.3f}% - {p_high*100:.3f}%")
     print(f"Expected infectious attendees:   "
           f"{(event.attendees-1) * p_low:.3f} - "
           f"{(event.attendees-1) * p_high:.3f}")
     print()
 
-    print("=== Per-event infection probability by mask ===")
-    for mask_name in ("none", "surgical", "kn95_typical",
-                      "n95_casual", "n95_fit_tested"):
-        mask = MASK_PROTECTION[mask_name]
-        lo, hi = per_event_infection_prob(event, prev, mask)
-        print(f"  {mask_name:<16} filt={mask:.2f}   "
-              f"{fmt(lo)} - {fmt(hi)}")
-    print()
+    for percentile in ("median", "p90"):
+        print(f"=== Per-event infection probability, quanta={percentile} ===")
+        for mask_name in ("none", "surgical", "kn95_typical",
+                          "n95_casual", "n95_fit_tested"):
+            mask = MASK_PROTECTION[mask_name]
+            lo, hi = per_event_infection_prob(event, prev, mask, percentile)
+            print(f"  {mask_name:<16} filt={mask:.2f}   "
+                  f"{fmt(lo)} - {fmt(hi)}")
+        print()
 
     mask = MASK_PROTECTION["n95_fit_tested"]
-    p_inf_lo, p_inf_hi = per_event_infection_prob(event, prev, mask)
+    lo_med, hi_med = per_event_infection_prob(event, prev, mask, "median")
+    lo_p90, hi_p90 = per_event_infection_prob(event, prev, mask, "p90")
+
     print("=== Hospitalization risk, N95 fit-tested ===")
     print(f"{'IC':<10}{'Protection':<12}{'P(hosp|inf)':<14}"
-          f"{'P(hosp per event)'}")
-    print("-" * 72)
+          f"{'P(hosp per event), median - p90'}")
+    print("-" * 82)
     for (ic, prot), p_h in P_HOSP_GIVEN_INFECTION.items():
-        lo, hi = per_event_hosp_prob(ic, prot, p_inf_lo, p_inf_hi)
+        med_lo, med_hi = per_event_hosp_prob(ic, prot, lo_med, hi_med)
+        p90_lo, p90_hi = per_event_hosp_prob(ic, prot, lo_p90, hi_p90)
         print(f"{ic:<10}{prot:<12}{p_h*100:>5.1f}%        "
-              f"{fmt(lo)} - {fmt(hi)}")
+              f"{fmt(med_lo)} - {fmt(p90_hi)}")
 
 
 if __name__ == "__main__":

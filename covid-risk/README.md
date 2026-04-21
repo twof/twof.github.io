@@ -15,12 +15,27 @@ Edit `Event`, `Prevalence`, or `MASK_PROTECTION` in `risk.py` to change inputs.
 
 ### Wells-Riley / quanta emission
 
-- **Buonanno et al., "Estimation of airborne viral emission: Quanta
-  emission rate of SARS-CoV-2 for infection risk assessment,"
-  *Environment International* 2020.**
-  Breathing at rest: 10.5 q/hr. Speaking at rest: 320 q/hr. Light
-  activity with vocalization: >100 q/hr.
-  https://pubmed.ncbi.nlm.nih.gov/32416374/
+- **Buonanno et al., "Quantitative assessment of the risk of airborne
+  transmission of SARS-CoV-2 infection: Prospective and retrospective
+  applications," *Environment International* 2020**, Table 2. Activity-
+  specific quanta rates, accounting for the log-normal distribution of
+  viral loads across infectious people:
+
+  | Activity (resting/light) | Median q/hr | 90th percentile q/hr |
+  |---|---|---|
+  | Quiet oral breathing     | 0.37  |   3.1 |
+  | Normal speaking          | 5.0   |  42.0 |
+  | Singing / loud speaking  | 32.0  | 270.0 |
+
+  Eating is modeled as a mix of breathing and brief speech
+  (~3 q/hr median, ~20 q/hr p90).
+  https://pmc.ncbi.nlm.nih.gov/articles/PMC7474922/
+
+  We time-weight these over the event's activity segments rather than
+  using a single hand-picked `quanta_per_hour`. The distinction between
+  median and 90th percentile is the biggest remaining uncertainty:
+  most infectious attendees shed near the median; occasional
+  "high-emitter" hosts can reach the p90. Report both bounds.
 
 - **ICRP / EPA Exposure Factors Handbook.** Sedentary adult breathing
   rate ~0.5 m^3/hr.
@@ -128,15 +143,23 @@ Values in `risk.py` are synthesized midpoints. Each cell carries roughly
 
 ## Example output (defaults)
 
-```
-Per-event infection probability (N95 fit-tested):     4.5 - 13.5 per million
-Per-event infection probability (N95 casual / KN95): 29.7 - 89.1 per million
-Per-event infection probability (unmasked):           90.0 per million - 2.7 per 10,000
+Activity breakdown: 81 min listening + 25 min discussion + 4 min singing
++ 10 min eating. Time-weighted quanta per infectious attendee:
+**2.6 q/hr median, 21.5 q/hr 90th percentile.**
 
-Hospitalization risk, N95 fit-tested, moderately IC + current vax:
-  90 - 270 per billion
+```
+Per-event infection probability (N95 fit-tested):
+  median emitter:  0.59 - 1.76 per million
+  p90 emitter:     4.84 - 14.52 per million
+
+Hospitalization risk (median - p90 span), moderately IC + current vax, N95 fit:
+  ~12 per billion - 290 per billion
 ```
 
-These numbers are small but dominated by `quanta_per_hour`,
-`air_changes_per_hour`, and `community_infectious_*` assumptions;
-sweep those to see sensitivity.
+The biggest remaining uncertainty is whether any infectious attendee is
+a "high emitter" (p90) versus a "typical emitter" (median). The range
+spans roughly an order of magnitude.
+
+Another striking takeaway: **4 minutes of singing contributes ~49% of
+the median total quanta emission** despite being only 3% of event time.
+Removing or masking the singing segment would roughly halve the risk.
