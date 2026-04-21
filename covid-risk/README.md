@@ -209,6 +209,57 @@ Values in `risk.py` are synthesized midpoints. Each cell carries roughly
   come from applying IC multipliers and vaccine/PrEP effectiveness
   on top of that baseline.
 
+### P(long COVID | infection) by IC status and protection
+
+`LONG_COVID_PER_INFECTION` values synthesized from:
+
+- **CDC EID 2024 (Japan, Omicron BA.5).** Vaccinated general population
+  long COVID ~6% at 90 days.
+  https://wwwnc.cdc.gov/eid/article/30/7/23-1723_article
+
+- **NEJM 2024 - PASC across Delta and Omicron eras.** ~10% at 3 months
+  post-Omicron; pre-Omicron OR 1.74 higher.
+  https://www.nejm.org/doi/full/10.1056/NEJMoa2403211
+
+- **Tran et al., "Effectiveness of COVID-19 vaccines against
+  post-COVID-19 condition," *Clinical Microbiology and Infection* 2025.**
+  3-dose vaccination reduces long COVID by 72% (95% CI 42-87%) in IC.
+  https://www.sciencedirect.com/science/article/pii/S1198743X25003672
+
+- **Nature Communications 2025 meta-analysis of vaccination vs long COVID.**
+  Any vaccination: OR 0.77. https://www.nature.com/articles/s41467-025-65302-0
+
+  Baseline general pop vaccinated Omicron ~6-10%. IC unvaccinated
+  multipliers: 2-4x for severe, 1.5-2x for moderate, ~1x for mild.
+  Vaccinated IC rates applied the 72% reduction.
+
+### IC prevalence in the general population
+
+- **Martinson et al., "Prevalence of Immunosuppression Among US Adults,"
+  *JAMA* 2024** (NHIS 2021 data). Age-stratified adult IC prevalence:
+
+  | Age   | Any IC |
+  |-------|--------|
+  | 18-39 | 3.9%   |
+  | 40-59 | 7.6%   |
+  | 60-69 | 9.5%   |
+  | 70+   | 7.8%   |
+
+  Overall US adult IC: 6.6%.
+  https://jamanetwork.com/journals/jama/fullarticle/2815274
+
+  Severity split (IC_SEVERITY_MIX): ~22% severe, ~55% moderate, ~23%
+  mild - literature synthesis, not directly measured in any single
+  study. Severe = transplant, CAR-T, active heme malignancy, anti-CD20.
+  Moderate = biologics, methotrexate, mid-dose steroids, HIV low-normal
+  CD4. Mild = low-dose prednisone, controlled HIV, asplenia.
+
+  Default attendee mask mix (DEFAULT_IC_MASK_MIX) and vax mix
+  (DEFAULT_IC_VAX_MIX) reflect realistic behavior of IC attendees:
+  more protected than the general population but not all in fit-tested
+  N95s. Values are informed but not measured - sensitivity analysis
+  recommended.
+
 ## Method limitations
 
 - **Well-mixed assumption.** Wells-Riley treats aerosol as uniform in
@@ -258,11 +309,49 @@ Expected quanta per infectious attendee: **10.1 q/hr (lognormal mean).**
 Going 50% -> 100% peer masking = ~2.3x risk reduction.
 Going 0% -> 25% current-season vax = ~1.13x reduction (small).
 
+### Aggregate risk across all IC attendees
+
+Using NHIS 2021 age-stratified IC prevalence, default attendee age
+distribution (70% 20-39, 20% 40-59, 7% 60-69, 3% 70+), and realistic
+mask/vax distribution among IC attendees:
+
+**Expected IC attendees per 100-person event:**
+
+| Scenario | Total IC | Severe | Moderate | Mild |
+|---|---|---|---|---|
+| No self-selection | 5.15 | 1.13 | 2.83 | 1.18 |
+| 0.5x self-selection | 2.57 | 0.57 | 1.42 | 0.59 |
+
+Per-IC-person weighted infection risk (across realistic mask mix):
+**20 - 61 per million** (much higher than the fit-tested N95 lower
+bound because most IC attendees aren't in fit-tested N95s).
+
+**Per-event aggregate risk (no self-selection):**
+
+| Outcome | Expected count | P(>=1 event) |
+|---|---|---|
+| IC attendee infected | 105 - 314 per million | ~1 in 9,500 - 3,200 |
+| IC attendee hospitalized (all IC) | 4.3 - 12.9 per million | ~1 in 233K - 78K |
+| IC attendee hospitalized (mod+sev only) | 3.9 - 11.7 per million | - |
+| IC attendee with long COVID | 10.8 - 32.5 per million | ~1 in 92K - 31K |
+
+**Annual totals at monthly cadence (12 events/year):**
+
+| Outcome | Expected cases per year |
+|---|---|
+| IC infections | 12.6 - 37.7 per 10,000 (~1 in 265 - 795) |
+| IC hospitalizations (all IC) | 51 - 154 per million (~1 in 6,500 - 20K) |
+| IC long-COVID cases | 1.3 - 3.9 per 10,000 (~1 in 2,600 - 7,700) |
+
 ### Other key findings
 
 - **4 minutes of singing contributes ~49% of median total quanta
   emission** despite being only 3% of event time. Removing or masking
   the singing segment roughly halves the risk.
-- The biggest remaining uncertainty is whether any infectious attendee
-  is a "high emitter" (p90) vs "typical emitter" (median) - a ~10x
-  spread.
+- **Aggregate risk across all IC attendees is materially higher than
+  the single-IC-attendee numbers** because there are ~3-5 IC attendees
+  at a 100-person 20-40-skewed event and most aren't in fit-tested N95s.
+- **The organizer-side cost/benefit calculation changes when computed
+  over the full IC population**: interventions that would protect the
+  ~3 IC attendees collectively deliver several times the harm-averted
+  vs. protecting just the single-attendee-in-N95 model.

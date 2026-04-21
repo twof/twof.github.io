@@ -199,6 +199,83 @@ P_HOSP_GIVEN_INFECTION = {
 }
 
 
+# P(long COVID | infection) by IC severity x protection.
+# Baseline vaccinated general-population Omicron rate: ~6-10% at 3 mo
+# (CDC EID 2024 Japan; NEJM 2024 PASC). 3-dose vaccination in IC reduces
+# long COVID by 72% vs unvaccinated IC (Tran et al. 2025 meta-analysis,
+# Clinical Microbiology and Infection). Unvaccinated IC multipliers:
+# ~2-4x general pop for severe, ~1.5-2x for moderate, ~1x for mild.
+LONG_COVID_PER_INFECTION = {
+    ("severe",   "vax+prep"): 0.09,
+    ("severe",   "vax_only"): 0.09,
+    ("severe",   "old_vax"):  0.20,
+    ("severe",   "none"):     0.30,
+
+    ("moderate", "vax+prep"): 0.07,
+    ("moderate", "vax_only"): 0.07,
+    ("moderate", "old_vax"):  0.12,
+    ("moderate", "none"):     0.18,
+
+    ("mild",     "vax+prep"): 0.06,
+    ("mild",     "vax_only"): 0.06,
+    ("mild",     "old_vax"):  0.08,
+    ("mild",     "none"):     0.10,
+}
+
+
+# Prevalence of any immunosuppression by age band.
+# Source: Martinson et al., "Prevalence of Immunosuppression Among US
+# Adults," JAMA 2024 (NHIS 2021 data).
+IC_PREVALENCE_BY_AGE = {
+    "18-39": 0.039,
+    "40-59": 0.076,
+    "60-69": 0.095,
+    "70+":   0.078,
+}
+
+
+# Severity split within total IC population (literature synthesis).
+# Severe = transplant, CAR-T, active heme malignancy, anti-CD20 therapy
+# Moderate = biologics, methotrexate, mid-dose steroids, HIV w/ low-normal CD4
+# Mild = low-dose prednisone, controlled HIV >500 CD4, asplenia
+IC_SEVERITY_MIX = {
+    "severe":   0.22,
+    "moderate": 0.55,
+    "mild":     0.23,
+}
+
+
+# Default attendee age distribution: "primarily 20-40, long tail, some 60s".
+DEFAULT_AGE_DISTRIBUTION = {
+    "18-39": 0.70,
+    "40-59": 0.20,
+    "60-69": 0.07,
+    "70+":   0.03,
+}
+
+
+# Default mask-wearing distribution among IC attendees. More protective
+# than general-population average but realistic; not all IC people are
+# in fit-tested N95s.
+DEFAULT_IC_MASK_MIX = {
+    "n95_fit_tested": 0.20,
+    "n95_casual":     0.25,
+    "kn95_typical":   0.15,
+    "surgical":       0.15,
+    "none":           0.25,
+}
+
+
+# Default vaccination distribution among IC attendees. Skewed toward
+# current vaccination vs general population; PrEP coverage is limited.
+DEFAULT_IC_VAX_MIX = {
+    "vax+prep": 0.15,
+    "vax_only": 0.45,
+    "old_vax":  0.25,
+    "none":     0.15,
+}
+
+
 def per_event_infection_prob(event, prev, mask_filtration,
                              quanta_percentile="mean"):
     """Return (low, high) P(infection) bracketed by prevalence range."""
@@ -226,6 +303,115 @@ def per_event_infection_prob(event, prev, mask_filtration,
 def per_event_hosp_prob(ic, protection, p_inf_low, p_inf_high):
     p_h = P_HOSP_GIVEN_INFECTION[(ic, protection)]
     return p_inf_low * p_h, p_inf_high * p_h
+
+
+def expected_ic_attendees(attendees, age_distribution=DEFAULT_AGE_DISTRIBUTION,
+                          self_selection=1.0):
+    """Expected number of IC attendees at the event, stratified by severity.
+
+    self_selection: multiplier on baseline prevalence reflecting IC
+    attendees' tendency to avoid/attend this kind of event. 1.0 = same as
+    general population; 0.5 = IC people attend at half the rate.
+
+    Returns (total_ic, by_severity_dict).
+    """
+    if abs(sum(age_distribution.values()) - 1.0) > 1e-6:
+        raise ValueError("age_distribution must sum to 1.0")
+    total = 0.0
+    for age_band, share in age_distribution.items():
+        total += attendees * share * IC_PREVALENCE_BY_AGE[age_band]
+    total *= self_selection
+    by_severity = {
+        sev: total * share
+        for sev, share in IC_SEVERITY_MIX.items()
+    }
+    return total, by_severity
+
+
+def weighted_ic_infection_risk(event, prev, ic_mask_mix=DEFAULT_IC_MASK_MIX):
+    """Per-event P(infection) for a representative IC attendee, weighted
+    across the mask distribution. Returns (low, high)."""
+    if abs(sum(ic_mask_mix.values()) - 1.0) > 1e-6:
+        raise ValueError("ic_mask_mix must sum to 1.0")
+    lo = hi = 0.0
+    for mask_name, weight in ic_mask_mix.items():
+        if weight == 0:
+            continue
+        filt = MASK_PROTECTION[mask_name]
+        m_lo, m_hi = per_event_infection_prob(event, prev, filt, "mean")
+        lo += weight * m_lo
+        hi += weight * m_hi
+    return lo, hi
+
+
+def weighted_outcome_rate(outcome_table, severity, vax_mix):
+    """Weighted average of P(outcome|infection) across a vax distribution,
+    for a given IC severity. outcome_table is e.g. P_HOSP_GIVEN_INFECTION.
+    """
+    if abs(sum(vax_mix.values()) - 1.0) > 1e-6:
+        raise ValueError("vax_mix must sum to 1.0")
+    return sum(vax_mix[v] * outcome_table[(severity, v)] for v in vax_mix)
+
+
+def aggregate_event_risk(event, prev,
+                         age_distribution=DEFAULT_AGE_DISTRIBUTION,
+                         ic_mask_mix=DEFAULT_IC_MASK_MIX,
+                         ic_vax_mix=DEFAULT_IC_VAX_MIX,
+                         self_selection=1.0):
+    """Compute expected counts of infections, hospitalizations, and long
+    COVID across all IC attendees at the event.
+
+    Returns dict with:
+      - expected_ic_attendees
+      - ic_by_severity
+      - per_ic_infection_risk: (lo, hi)
+      - expected_infections: (lo, hi)
+      - expected_hospitalizations: (lo, hi) - sums across mod+sev+mild
+      - expected_hospitalizations_mod_sev: (lo, hi)
+      - expected_long_covid: (lo, hi)
+      - p_any_ic_infected: (lo, hi)          # 1 - (1-p)^N_ic
+      - p_any_ic_hospitalized: (lo, hi)
+      - p_any_ic_long_covid: (lo, hi)
+    """
+    total_ic, by_severity = expected_ic_attendees(
+        event.attendees, age_distribution, self_selection)
+
+    p_inf_lo, p_inf_hi = weighted_ic_infection_risk(event, prev, ic_mask_mix)
+
+    exp_inf = (total_ic * p_inf_lo, total_ic * p_inf_hi)
+
+    exp_hosp_lo = exp_hosp_hi = 0.0
+    exp_hosp_ms_lo = exp_hosp_ms_hi = 0.0
+    exp_lc_lo = exp_lc_hi = 0.0
+    for sev, n_sev in by_severity.items():
+        w_hosp = weighted_outcome_rate(P_HOSP_GIVEN_INFECTION, sev, ic_vax_mix)
+        w_lc = weighted_outcome_rate(LONG_COVID_PER_INFECTION, sev, ic_vax_mix)
+        exp_hosp_lo += n_sev * p_inf_lo * w_hosp
+        exp_hosp_hi += n_sev * p_inf_hi * w_hosp
+        exp_lc_lo += n_sev * p_inf_lo * w_lc
+        exp_lc_hi += n_sev * p_inf_hi * w_lc
+        if sev in ("severe", "moderate"):
+            exp_hosp_ms_lo += n_sev * p_inf_lo * w_hosp
+            exp_hosp_ms_hi += n_sev * p_inf_hi * w_hosp
+
+    # Probability of at least one IC attendee experiencing the outcome.
+    # P(>=1 event) = 1 - prod_i (1 - p_i) ~= 1 - exp(-sum p_i) when p small.
+    def p_any(expected_count_lo, expected_count_hi):
+        return (1 - math.exp(-expected_count_lo),
+                1 - math.exp(-expected_count_hi))
+
+    return {
+        "expected_ic_attendees": total_ic,
+        "ic_by_severity": by_severity,
+        "per_ic_infection_risk": (p_inf_lo, p_inf_hi),
+        "expected_infections": exp_inf,
+        "expected_hospitalizations": (exp_hosp_lo, exp_hosp_hi),
+        "expected_hospitalizations_mod_sev": (exp_hosp_ms_lo, exp_hosp_ms_hi),
+        "expected_long_covid": (exp_lc_lo, exp_lc_hi),
+        "p_any_ic_infected": p_any(*exp_inf),
+        "p_any_ic_hospitalized": p_any(exp_hosp_lo, exp_hosp_hi),
+        "p_any_ic_long_covid": p_any(exp_lc_lo, exp_lc_hi),
+    }
 
 
 def fmt(p):
@@ -317,7 +503,7 @@ def main():
     print()
 
     lo, hi = per_event_infection_prob(event, prev, mask, "mean")
-    print("=== Hospitalization risk grid ===")
+    print("=== Hospitalization risk grid (single IC attendee) ===")
     print("(N95 fit-tested attendee, 0% peer masking, 25% peer vax, "
           "no-symptoms policy)")
     print(f"{'IC':<10}{'Protection':<12}{'P(hosp|inf)':<14}"
@@ -327,6 +513,62 @@ def main():
         hosp_lo, hosp_hi = per_event_hosp_prob(ic, prot, lo, hi)
         print(f"{ic:<10}{prot:<12}{p_h*100:>5.1f}%        "
               f"{fmt(hosp_lo)} - {fmt(hosp_hi)}")
+    print()
+
+    print("=== Aggregate risk across all IC attendees ===")
+    print("(using IC prevalence by age, realistic IC mask/vax distribution)")
+    print()
+    print(f"Attendee age distribution: {DEFAULT_AGE_DISTRIBUTION}")
+    print(f"IC severity mix:           {IC_SEVERITY_MIX}")
+    print(f"IC mask mix:               {DEFAULT_IC_MASK_MIX}")
+    print(f"IC vax mix:                {DEFAULT_IC_VAX_MIX}")
+    print()
+
+    for selection_label, selection in (("no self-selection", 1.0),
+                                       ("0.5x self-selection", 0.5)):
+        agg = aggregate_event_risk(event, prev, self_selection=selection)
+        print(f"--- {selection_label} ---")
+        print(f"Expected IC attendees:            "
+              f"{agg['expected_ic_attendees']:.2f} total")
+        for sev, n in agg["ic_by_severity"].items():
+            print(f"    {sev:<10}: {n:.2f}")
+        p_lo, p_hi = agg["per_ic_infection_risk"]
+        print(f"Per-IC infection risk (weighted): "
+              f"{fmt(p_lo)} - {fmt(p_hi)}")
+        print()
+        for label, key_expected, key_any in (
+            ("IC attendee infected",
+             "expected_infections", "p_any_ic_infected"),
+            ("IC attendee hospitalized (all IC)",
+             "expected_hospitalizations", "p_any_ic_hospitalized"),
+            ("IC attendee hospitalized (mod+sev)",
+             "expected_hospitalizations_mod_sev", None),
+            ("IC attendee with long COVID",
+             "expected_long_covid", "p_any_ic_long_covid"),
+        ):
+            exp_lo, exp_hi = agg[key_expected]
+            print(f"  {label}")
+            print(f"    expected count:  {fmt(exp_lo)} - {fmt(exp_hi)}")
+            if key_any:
+                any_lo, any_hi = agg[key_any]
+                print(f"    P(>=1 event):    {fmt(any_lo)} - {fmt(any_hi)}")
+        print()
+
+        # Monthly cadence: 12 events/year.
+        print(f"  Annual totals at monthly cadence (12 events/year):")
+        n_events = 12
+        for label, key_expected in (
+            ("IC infections",       "expected_infections"),
+            ("IC hospitalizations (all IC)",
+                                    "expected_hospitalizations"),
+            ("IC hospitalizations (mod+sev)",
+                                    "expected_hospitalizations_mod_sev"),
+            ("IC long-COVID cases", "expected_long_covid"),
+        ):
+            exp_lo, exp_hi = agg[key_expected]
+            print(f"    {label:<34} "
+                  f"{fmt(exp_lo*n_events)} - {fmt(exp_hi*n_events)}")
+        print()
 
 
 if __name__ == "__main__":
