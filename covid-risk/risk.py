@@ -73,6 +73,21 @@ class Event:
         "kn95":     0.25,
         "n95":      0.25,
     })
+    # Fraction of peers who are up to date on 2025-2026 COVID vaccine.
+    # Assumes 3-dose baseline for all (already reflected in community
+    # prevalence). This adds a differential reduction for the boosted
+    # subset only.
+    peer_current_season_vax_fraction: float = 0.0
+    # VE against infection from current-season vaccine, averaged over
+    # the post-dose window. Link-Gelles MMWR 2025 / NEJM Veterans 2025:
+    # ~30-45% in first 3 months, waning to ~15-20% at 3-6 months.
+    # Use 0.25 as central estimate.
+    ve_infection: float = 0.25
+    # Reduction in quanta emission per breakthrough infection.
+    # Meta-analyses of breakthrough shedding (Tan 2023, Eyre 2022 et al.):
+    # vaccinated breakthroughs show similar peak viral load but ~1-2 day
+    # faster clearance; averaged over infectious period ~25-35% lower.
+    ve_shedding: float = 0.30
 
     def quanta_per_hour(self, percentile: str = "median") -> float:
         idx = 0 if percentile == "median" else 1
@@ -90,6 +105,24 @@ class Event:
         f = self.peer_masking_fraction
         return (1 - f) * 1.0 + f * (1 - avg_sc)
 
+    def peer_vax_prevalence_factor(self) -> float:
+        """Multiplier on community prevalence reflecting current-season
+        vaccination coverage among peers. <1 means fewer infectious
+        peers than the community average."""
+        p = self.peer_current_season_vax_fraction
+        return p * (1 - self.ve_infection) + (1 - p) * 1.0
+
+    def peer_vax_emission_factor(self) -> float:
+        """Multiplier on per-infectious-peer quanta emission reflecting
+        lower shedding in breakthrough-vaccinated infectious peers."""
+        p = self.peer_current_season_vax_fraction
+        # Fraction of infectious peers who are current-season vaxxed:
+        inf_among_vax = p * (1 - self.ve_infection)
+        inf_among_unvax = (1 - p) * 1.0
+        frac_inf_are_vaxxed = inf_among_vax / (inf_among_vax + inf_among_unvax)
+        return (frac_inf_are_vaxxed * (1 - self.ve_shedding)
+                + (1 - frac_inf_are_vaxxed) * 1.0)
+
 
 @dataclass
 class Prevalence:
@@ -97,12 +130,15 @@ class Prevalence:
     # Community infectious prevalence plausibly 0.1-0.3% in this regime.
     community_infectious_low: float = 0.001
     community_infectious_high: float = 0.003
-    # Fraction of infectious person-days that belong to people feeling
-    # well enough to attend (asymptomatic + presymptomatic + mild).
-    # Buitrago-Garcia 2022 living SR: ~35% truly asymptomatic; add
-    # presymptomatic window of 1-3 days -> roughly 40-50% of
-    # infectious person-days are "attendable".
-    event_attendable_fraction: float = 0.45
+    # Fraction of infectious person-days attendable at the event.
+    # Strict "no-one-with-symptoms" interpretation: only truly
+    # asymptomatic (35% of infections, full 6-day infectious window) +
+    # presymptomatic (65% of infections * ~2 days pre-symptom).
+    #   attendable_person_days = 0.35*6 + 0.65*2 = 3.40
+    #   total_person_days      = 0.35*6 + 0.65*8 = 7.30
+    #   fraction               = 0.466
+    # Buitrago-Garcia 2022 living SR for the 35% asymptomatic figure.
+    event_attendable_fraction: float = 0.47
 
 
 # Receiver-side fitted filtration efficiency (fraction blocked). Sources:
@@ -157,13 +193,16 @@ def per_event_infection_prob(event, prev, mask_filtration,
     #   P(inf) = 1 - exp(-N_inf * n_per_source * (1 - mask))
     q_per_hr = event.quanta_per_hour(quanta_percentile)
     q_per_hr *= event.effective_source_emission_factor()
+    q_per_hr *= event.peer_vax_emission_factor()
     C = q_per_hr / (event.air_changes_per_hour * event.room_volume_m3)
     n_per_source = C * event.breathing_rate_m3_per_hour * event.duration_hours
     effective_dose = n_per_source * (1 - mask_filtration)
 
     probs = []
     for p_comm in (prev.community_infectious_low, prev.community_infectious_high):
-        p_event_attendee = p_comm * prev.event_attendable_fraction
+        p_event_attendee = (p_comm
+                            * prev.event_attendable_fraction
+                            * event.peer_vax_prevalence_factor())
         expected_infectious = (event.attendees - 1) * p_event_attendee
         probs.append(1 - math.exp(-expected_infectious * effective_dose))
     return min(probs), max(probs)
@@ -187,7 +226,10 @@ def fmt(p):
 
 
 def main():
-    event = Event()
+    # User-specified scenario: 25% of peers have 2025-2026 vaccine;
+    # everyone has 3-dose baseline (already in community prevalence);
+    # no-one attends with any symptoms (event_attendable_fraction=0.47).
+    event = Event(peer_current_season_vax_fraction=0.25)
     prev = Prevalence()
 
     q_med = event.quanta_per_hour("median")
@@ -224,9 +266,27 @@ def main():
         print()
 
     mask = MASK_PROTECTION["n95_fit_tested"]
+    print("=== Peer vaccination sensitivity ===")
+    print("(attendee in fit-tested N95; 0% peer masking; "
+          "VE_inf=0.25, VE_shed=0.30)")
+    print()
+    for cs_vax in (0.0, 0.25, 0.50, 1.0):
+        event.peer_current_season_vax_fraction = cs_vax
+        prev_factor = event.peer_vax_prevalence_factor()
+        emit_factor = event.peer_vax_emission_factor()
+        combined = prev_factor * emit_factor
+        lo_med, hi_med = per_event_infection_prob(event, prev, mask, "median")
+        print(f"  {int(cs_vax*100):>3d}% current-season vaxxed   "
+              f"prevalence x{prev_factor:.3f} * "
+              f"emission x{emit_factor:.3f} = x{combined:.3f}")
+        print(f"    P(infection) median emitter: "
+              f"{fmt(lo_med)} - {fmt(hi_med)}")
+    event.peer_current_season_vax_fraction = 0.25  # user scenario
+    print()
+
     print("=== Peer masking sensitivity ===")
-    print("(attendee in fit-tested N95; 25% each of "
-          "cloth/surgical/KN95/N95 among masked peers)")
+    print("(attendee in fit-tested N95; 25% current-season vax; "
+          "25% each cloth/surgical/KN95/N95 among masked peers)")
     print()
     for f in (0.0, 0.5, 1.0):
         event.peer_masking_fraction = f
@@ -234,7 +294,7 @@ def main():
         lo_med, hi_med = per_event_infection_prob(event, prev, mask, "median")
         lo_p90, hi_p90 = per_event_infection_prob(event, prev, mask, "p90")
         print(f"  {int(f*100):>3d}% peers masked   "
-              f"emission factor = {emission:.3f}")
+              f"mask-emission factor = {emission:.3f}")
         print(f"    P(infection) median emitter: "
               f"{fmt(lo_med)} - {fmt(hi_med)}")
         print(f"    P(infection) p90 emitter:    "

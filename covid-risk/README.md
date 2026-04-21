@@ -118,8 +118,43 @@ Lai 2024.
   living systematic review and meta-analysis," *PLOS Medicine* 2022.**
   ~35% of infections truly asymptomatic. Presymptomatic window 1-3
   days. Combined fraction of infectious person-days belonging to
-  non-symptomatic people ~40-50%.
+  non-symptomatic people ~47% under the strict assumption that
+  symptomatic attendees stay home: 0.35*6 + 0.65*2 = 3.40 out of 7.30
+  total infectious person-days.
   https://pubmed.ncbi.nlm.nih.gov/35617363/
+
+### Peer vaccination (current-season booster)
+
+Model: everyone has a 3-dose baseline (already reflected in current
+community prevalence); a fraction of peers additionally have the
+current-season (2025-2026) vaccine. The boosted subset has lower
+probability of being infectious *and* lower shedding conditional on
+breakthrough.
+
+- **Link-Gelles et al., "Interim Estimates of 2024-2025 COVID-19
+  Vaccine Effectiveness," MMWR / VISION & IVY Networks 2025.**
+  VE against hospitalization ~45-46% in non-IC adults >=65; VE
+  against infection not primary endpoint but observed ~30-45% in
+  first 3 months post-dose, waning rapidly.
+  https://pubmed.ncbi.nlm.nih.gov/40014628/
+
+- **NEJM Veterans study 2025 (Association of 2024-2025 COVID-19
+  Vaccine with Outcomes).** Confirms severe-outcome VE numbers.
+  https://www.nejm.org/doi/full/10.1056/NEJMoa2510226
+
+  Model averages VE against infection across the typical 6-month
+  post-dose period at **0.25**.
+
+- **Tan 2023 / Eyre 2022 and follow-ups on breakthrough shedding.**
+  Vaccinated breakthrough infections have similar peak viral load
+  but ~1-2 days faster clearance. Averaged over infectious period,
+  ~25-35% lower quanta emission. Model uses **0.30**.
+
+  Note: peer vaccination has a relatively small impact on event
+  transmission compared to peer masking, because (a) VE against
+  infection wanes fast, (b) reduced shedding is modest, and (c) a
+  symptom-adjusted attendable-fraction partially offsets the gains
+  (vaccinated breakthroughs skew more asymptomatic).
 
 ### Community prevalence proxy (SF wastewater)
 
@@ -188,24 +223,35 @@ Values in `risk.py` are synthesized midpoints. Each cell carries roughly
 
 ## Example output (defaults)
 
-Activity breakdown: 81 min listening + 25 min discussion + 4 min singing
-+ 10 min eating. Time-weighted quanta per infectious attendee:
+Defaults: 81 min listening + 25 min discussion + 4 min singing
++ 10 min eating; 25% of peers current-season vaxxed;
+no-symptoms attendable fraction 0.47; 0% peer masking.
+Time-weighted quanta per infectious attendee:
 **2.6 q/hr median, 21.5 q/hr 90th percentile.**
 
-### Peer masking sensitivity (attendee in fit-tested N95)
+### Peer vaccination sensitivity (attendee in fit-tested N95, 0% peer masking)
+
+| Peers current-season vaxxed | Transmission multiplier | P(inf) median emitter |
+|---|---|---|
+| 0%   | 1.000 | 613 ppB - 1.84 ppM |
+| 25%  | 0.881 | 540 ppB - 1.62 ppM |
+| 50%  | 0.762 | 467 ppB - 1.40 ppM |
+| 100% | 0.525 | 322 - 965 ppB |
+
+### Peer masking sensitivity (attendee in fit-tested N95, 25% current-season vax)
 
 25% each cloth/surgical/KN95/N95 mix among masked peers:
 
-| Peers masked | Quanta factor | P(inf) median emitter | P(inf) p90 emitter |
+| Peers masked | Mask-emission factor | P(inf) median emitter | P(inf) p90 emitter |
 |---|---|---|---|
-| 0%   | 1.000 | 587 ppB - 1.76 ppM | 4.8 - 14.5 ppM |
-| 50%  | 0.637 | 374 ppB - 1.12 ppM | 3.1 - 9.3 ppM |
-| 100% | 0.275 | 161 - 484 ppB      | 1.3 - 4.0 ppM |
+| 0%   | 1.000 | 540 ppB - 1.62 ppM | 4.5 - 13.4 ppM |
+| 50%  | 0.637 | 344 ppB - 1.03 ppM | 2.8 - 8.5 ppM |
+| 100% | 0.275 | 149 - 446 ppB      | 1.2 - 3.7 ppM |
 
 (ppB = per billion; ppM = per million)
 
-Going 50% -> 100% peer masking = ~2.3x risk reduction
-(emission factor drops from 0.637 to 0.275).
+Going 50% -> 100% peer masking = ~2.3x risk reduction.
+Going 0% -> 25% current-season vax = ~1.13x reduction (small).
 
 ### Other key findings
 
