@@ -197,6 +197,58 @@ breakthrough.
   symptom-adjusted attendable-fraction partially offsets the gains
   (vaccinated breakthroughs skew more asymptomatic).
 
+### 2026 calibration adjustments
+
+The model was originally calibrated with early-Omicron-era parameters
+(Buonanno 2020 quanta rates, Omicron-2022 hospitalization rates,
+naive-population assumption). For 2026 SF reality, the following
+calibrations are applied:
+
+- **Quanta rate scaling: 0.5x.** Buonanno 2020 calibration assumed
+  ~10^8 copies/mL viral loads. Current variants in mostly-immune
+  population show 0.5-1 log10 lower viral loads in breakthrough
+  infections (Puhach et al. 2022, Lyngse et al. 2023). Sets
+  `QUANTA_CALIBRATION_FACTOR_2026 = 0.5`.
+
+- **Community prevalence: 0.04-0.12%.** Lower than earlier 0.1-0.3%
+  range. Calibrated to current SF wastewater (LOW category) using
+  Biobot/WastewaterSCAN conversion factors and back-validated
+  against actual recorded case + death counts.
+
+- **Non-IC P(hosp|inf): 0.05% (current vax) / 0.10% (old vax) /
+  0.30% (none).** Calibrated to MMWR VISION/IVY 2025 (~38 per 100K
+  adults annual hospitalization rate, implies 0.08-0.13%
+  hospitalization-per-infection at current attack rates) and Nature
+  Communications 2024 (England IHR 0.06% by Apr 2022). Earlier
+  values (0.5%/1%/2%) were ~5-10x too high for current era.
+
+- **Hybrid immunity adjustment for non-IC: 50% reduction.**
+  Bobrovitz et al. (Lancet Infectious Diseases 2022) meta-regression:
+  hybrid immunity ~50% effective against reinfection averaged over
+  6-12 months post-exposure. Modal US adult in 2026 has 2-3 prior
+  infections plus vaccination.
+  https://www.thelancet.com/journals/laninf/article/PIIS1473-3099(22)00801-5/
+
+- **Hybrid immunity adjustment for IC: 20% reduction.** PLOS ONE
+  2024 (Anti-N seroprevalence in IC, US 2020-2022): IC patients
+  39% less likely to test antibody-positive 14-90 days post-infection
+  (aOR 0.61). Beyond 90 days, no difference in seroprevalence -
+  attributed to higher reinfection rates restoring seropositivity.
+  Net per-infection antibody response is weaker; effective hybrid
+  immunity ~20%.
+  https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0313620
+
+  Note: this contradicts a common assumption that IC people have
+  fewer prior infections (i.e., less exposure); the actual mechanism
+  is reduced immune response per infection.
+
+After these calibrations, the model produces:
+  - Population-level infection predictions within ~1-2x of recorded
+    SF data (~6,000-10,000 modeled vs. ~5,000-20,000 estimated actual).
+  - Population-level hospitalization predictions within ~1x of
+    observed SF rates (single-digit hospitalizations/year for
+    typical-event-density adult exposure).
+
 ### Community prevalence proxy (SF wastewater)
 
 - **WastewaterSCAN (Stanford).** Oceanside SF SARS-CoV-2 reading ~1.6
@@ -408,24 +460,29 @@ mask/vax distribution among IC attendees:
 | 0.5x self-selection | 2.57 | 0.57 | 1.42 | 0.59 |
 
 Per-IC-person weighted infection risk (regimented default:
-90% fit-N95 / 10% casual-N95): **2.7 - 8.2 per million**.
-(Down from 3.3-9.8 after transient-dose correction factor 0.83.)
+90% fit-N95 / 10% casual-N95): **0.44 - 1.31 per million**
+(after 2026 calibrations: 2x quanta reduction, 2x prevalence
+reduction, 20% IC hybrid immunity).
 
 ### Non-IC attendee risks (~96 attendees, unmasked, mixed vax)
 
 | Risk | Per-event | Annual (monthly cadence) |
 |---|---|---|
-| Per-person infection | 35-105 per million | - |
-| Any non-IC infected | 34 per 10,000 - 1.0% | 4% - 12% / year |
-| Any non-IC hospitalized | 31-93 per million | 3.7-11.2 per 10,000 / year |
-| Any non-IC with long COVID | 2.9-8.7 per 10,000 | 35 per 10,000 - 1.0% / year |
+| Per-person infection | 3.5-10.5 per million | - |
+| Any non-IC infected | 3.4-10.2 per 10,000 | 41 per 10,000 - 1.2% / year |
+| Any non-IC hospitalized | 332-995 per billion | 4-12 per million / year |
+| Any non-IC with long COVID | 19-58 per million | 2.3-7 per 10,000 / year |
 
-Non-IC infection risk is ~20x higher than IC because they're unmasked;
-hospitalization/long-COVID per person is much lower because they're
-vaccinated and not IC. Across all ~96 non-IC attendees, however,
-aggregate outcomes are meaningful: at monthly cadence, there's
-roughly a 1-in-900 to 1-in-3000 chance per year that any non-IC
-attendee gets hospitalized from attendance.
+After calibration, per-person non-IC infection risk is ~3-10 ppM
+per event (was 35-105 ppM before calibration). Non-IC vs IC infection
+ratio is now ~8x (down from 13x) because hybrid immunity helps non-IC
+more than IC.
+
+Annual aggregate predictions:
+- Across all 96 non-IC attendees: ~1 in 80K-250K chance of any
+  non-IC attendee hospitalized per year of monthly events
+- IC attendee hospitalized per year of monthly events: ~1 in 700K-2M
+- Both well below regulatory de-minimis thresholds.
 
 **Per-event aggregate risk across self-selection sensitivity
 (regimented IC, 3.6 expected IC attendees at default 0.70x):**

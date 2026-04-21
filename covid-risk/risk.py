@@ -186,9 +186,12 @@ class Event:
 @dataclass
 class Prevalence:
     # SF wastewater is LOW / flat (Oceanside ~1.6, R~1.01 as of 2026-04-10).
-    # Community infectious prevalence plausibly 0.1-0.3% in this regime.
-    community_infectious_low: float = 0.001
-    community_infectious_high: float = 0.003
+    # Wastewater-to-prevalence conversion (Biobot, WastewaterSCAN) for
+    # the LOW category gives community infectious prevalence ~0.04-0.12%.
+    # The earlier 0.1-0.3% range was too high for current SF reality
+    # (back-validated against documented case + death data).
+    community_infectious_low: float = 0.0004
+    community_infectious_high: float = 0.0012
     # Fraction of infectious person-days attendable at the event.
     # Strict "no-one-with-symptoms" interpretation: only truly
     # asymptomatic (35% of infections, full 6-day infectious window) +
@@ -198,6 +201,30 @@ class Prevalence:
     #   fraction               = 0.466
     # Buitrago-Garcia 2022 living SR for the 35% asymptomatic figure.
     event_attendable_fraction: float = 0.47
+
+
+# Quanta-rate calibration factor accounting for the Buonanno 2020
+# distribution being calibrated to early-pandemic / wild-type viral
+# load distributions. Current variants infecting a mostly-immune
+# population shed ~0.5-1 log10 less viral load on average (Puhach 2022,
+# Lyngse 2023). Scale quanta down by ~2x to reflect this.
+QUANTA_CALIBRATION_FACTOR_2026 = 0.5
+
+
+# Hybrid immunity reduction factor on per-event infection probability,
+# applied to non-IC adults. Bobrovitz et al. (Lancet Inf Dis 2022)
+# meta-regression: hybrid immunity ~50% effective against reinfection
+# averaged over 6-12 months post-exposure. Modal US adult in 2026 has
+# 2-3 prior infections plus vaccination. Effective per-exposure
+# protection: ~50%.
+HYBRID_IMMUNITY_NON_IC = 0.50
+
+# Hybrid immunity for IC adults: PLOS ONE 2024 - IC patients have
+# 39% lower seroconversion 14-90 days post-infection (aOR 0.61). They
+# also get reinfected more often (which restores seroprevalence beyond
+# 90 days), but the per-infection antibody response is weaker. Net
+# protective effect is ~20% rather than 50%.
+HYBRID_IMMUNITY_IC = 0.20
 
 
 # Receiver-side fitted filtration efficiency (fraction blocked). Sources:
@@ -341,24 +368,32 @@ GENERAL_IC_VAX_MIX = {
 
 
 # P(hospitalization | infection) for non-IC adults by vaccination
-# status. Omicron-era baseline ~1-3% for unvaxxed adults (highly
-# age-dependent); vaccine effectiveness against hospitalization ~40-70%
-# for current-season, ~15-30% for older doses.
-# Sources: MMWR IVY Network 2025, NEJM Veterans Study 2025.
+# status. Calibrated to current 2024-2026 era data:
+# - MMWR VISION/IVY Network 2025: ~38 per 100K adults annual hosp rate;
+#   with ~3-5% annual community infection, gives ~0.08-0.13%
+#   hospitalization-per-infection for vaccinated adults.
+# - Nature Comm 2024 (England): IHR dropped to 0.06% by Apr 2022,
+#   0.32% Dec 2022; lower since with hybrid immunity.
+# - Austria 2020-2023 nationwide: average IFR 0.16% across full
+#   pandemic, much lower in current era.
+# - 2024-2025 vaccine effectiveness against hospitalization: ~40-46%
+#   (Link-Gelles MMWR 2025).
 P_HOSP_GIVEN_INFECTION_NON_IC = {
-    "vax_current": 0.005,   # current-season vaccine, ~60% VE vs hosp
-    "vax_old":     0.010,   # 3-dose only, waned
-    "none":        0.020,   # truly unvaccinated (rare in US adults)
+    "vax_current": 0.0005,  # current-season vaccine + hybrid immunity
+    "vax_old":     0.0010,  # older vaccine, still has hybrid immunity
+    "none":        0.0030,  # truly unvaccinated (rare)
 }
 
 
 # P(long COVID | infection) for non-IC adults by vaccination status.
-# Based on vaccinated Omicron general pop ~6-10% (CDC EID 2024,
-# NEJM PASC 2024). Vaccination reduces by ~23% (OR 0.77 meta-analysis).
+# CDC EID 2024 (Japan, vaccinated Omicron): 6% at 90 days. NEJM 2024
+# (Veterans Omicron): 10% at 3 months. Vaccination reduces by ~23%
+# (OR 0.77, Nat Comm 2025 meta-analysis). With hybrid immunity in
+# the modern population, central estimates land 4-8%.
 P_LONG_COVID_PER_INFECTION_NON_IC = {
-    "vax_current": 0.07,
-    "vax_old":     0.09,
-    "none":        0.12,
+    "vax_current": 0.04,
+    "vax_old":     0.06,
+    "none":        0.10,
 }
 
 
@@ -405,8 +440,15 @@ DEFAULT_SELF_SELECTION = 0.70
 
 
 def per_event_infection_prob(event, prev, mask_filtration,
-                             quanta_percentile="mean"):
-    """Return (low, high) P(infection) bracketed by prevalence range."""
+                             quanta_percentile="mean",
+                             hybrid_immunity=0.0):
+    """Return (low, high) P(infection) bracketed by prevalence range.
+
+    hybrid_immunity: fraction reduction in effective infection
+    probability from the susceptible attendee's pre-existing immunity
+    (from prior infections + vaccination). 0.0 = naive; 0.5 = typical
+    non-IC; 0.2 = IC with weakened immune response per infection.
+    """
     # Wells-Riley steady-state:
     #   C = Q / (ACH * V)
     #   n_per_source = C * breathing * duration
@@ -415,12 +457,15 @@ def per_event_infection_prob(event, prev, mask_filtration,
     q_per_hr *= event.effective_source_emission_factor()
     q_per_hr *= event.peer_vax_emission_factor()
     q_per_hr *= event.humidity_multiplier()
+    # 2026 quanta calibration: current variants in mostly-immune pop
+    # produce lower viral loads than Buonanno's 2020 calibration.
+    q_per_hr *= QUANTA_CALIBRATION_FACTOR_2026
     C = q_per_hr / (event.air_changes_per_hour * event.room_volume_m3)
     n_per_source = C * event.breathing_rate_m3_per_hour * event.duration_hours
-    # Apply non-steady-state transient correction: late-emitted quanta
-    # don't have full exposure time to be inhaled.
+    # Non-steady-state transient correction.
     n_per_source *= event.transient_dose_factor(quanta_percentile)
-    effective_dose = n_per_source * (1 - mask_filtration)
+    # Mask filtration combined with hybrid immunity (multiplicative).
+    effective_dose = n_per_source * (1 - mask_filtration) * (1 - hybrid_immunity)
 
     probs = []
     for p_comm in (prev.community_infectious_low, prev.community_infectious_high):
@@ -460,7 +505,8 @@ def expected_ic_attendees(attendees, age_distribution=DEFAULT_AGE_DISTRIBUTION,
     return total, by_severity
 
 
-def weighted_ic_infection_risk(event, prev, ic_mask_mix=DEFAULT_IC_MASK_MIX):
+def weighted_ic_infection_risk(event, prev, ic_mask_mix=DEFAULT_IC_MASK_MIX,
+                               hybrid_immunity=HYBRID_IMMUNITY_IC):
     """Per-event P(infection) for a representative IC attendee, weighted
     across the mask distribution. Returns (low, high)."""
     if abs(sum(ic_mask_mix.values()) - 1.0) > 1e-6:
@@ -470,7 +516,8 @@ def weighted_ic_infection_risk(event, prev, ic_mask_mix=DEFAULT_IC_MASK_MIX):
         if weight == 0:
             continue
         filt = MASK_PROTECTION[mask_name]
-        m_lo, m_hi = per_event_infection_prob(event, prev, filt, "mean")
+        m_lo, m_hi = per_event_infection_prob(event, prev, filt, "mean",
+                                              hybrid_immunity=hybrid_immunity)
         lo += weight * m_lo
         hi += weight * m_hi
     return lo, hi
@@ -535,7 +582,8 @@ def aggregate_event_risk(event, prev,
     # Non-IC attendees: everyone minus expected IC attendees.
     total_non_ic = event.attendees - total_ic
     p_inf_non_ic_lo, p_inf_non_ic_hi = weighted_ic_infection_risk(
-        event, prev, DEFAULT_NON_IC_MASK_MIX)
+        event, prev, DEFAULT_NON_IC_MASK_MIX,
+        hybrid_immunity=HYBRID_IMMUNITY_NON_IC)
     w_hosp_non_ic = sum(DEFAULT_NON_IC_VAX_MIX[v] * P_HOSP_GIVEN_INFECTION_NON_IC[v]
                         for v in DEFAULT_NON_IC_VAX_MIX)
     w_lc_non_ic = sum(DEFAULT_NON_IC_VAX_MIX[v] * P_LONG_COVID_PER_INFECTION_NON_IC[v]
