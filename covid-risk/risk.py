@@ -254,21 +254,41 @@ DEFAULT_AGE_DISTRIBUTION = {
 }
 
 
-# Default mask-wearing distribution among IC attendees. More protective
-# than general-population average but realistic; not all IC people are
-# in fit-tested N95s.
+# Default mask-wearing distribution among IC attendees.
+# IC people attending indoor events with food and singing are strongly
+# self-selected for thoughtful risk management - specialists routinely
+# recommend fit-tested N95s for these patients, and patients who reject
+# that advice tend to also reject attending this type of event at all.
+# So "IC attendee at this event" is assumed to track specialist guidance
+# closely.
 DEFAULT_IC_MASK_MIX = {
+    "n95_fit_tested": 0.90,
+    "n95_casual":     0.10,
+    "kn95_typical":   0.00,
+    "surgical":       0.00,
+    "none":           0.00,
+}
+
+
+# Default vaccination distribution among IC attendees. Same logic: those
+# who attend this type of event are disproportionately those with full
+# specialist-guided protection.
+DEFAULT_IC_VAX_MIX = {
+    "vax+prep": 0.40,
+    "vax_only": 0.50,
+    "old_vax":  0.10,
+    "none":     0.00,
+}
+
+# Less-regimented alternative mixes for sensitivity analysis.
+GENERAL_IC_MASK_MIX = {
     "n95_fit_tested": 0.20,
     "n95_casual":     0.25,
     "kn95_typical":   0.15,
     "surgical":       0.15,
     "none":           0.25,
 }
-
-
-# Default vaccination distribution among IC attendees. Skewed toward
-# current vaccination vs general population; PrEP coverage is limited.
-DEFAULT_IC_VAX_MIX = {
+GENERAL_IC_VAX_MIX = {
     "vax+prep": 0.15,
     "vax_only": 0.45,
     "old_vax":  0.25,
@@ -516,18 +536,28 @@ def main():
     print()
 
     print("=== Aggregate risk across all IC attendees ===")
-    print("(using IC prevalence by age, realistic IC mask/vax distribution)")
+    print("(using IC prevalence by age)")
     print()
     print(f"Attendee age distribution: {DEFAULT_AGE_DISTRIBUTION}")
     print(f"IC severity mix:           {IC_SEVERITY_MIX}")
-    print(f"IC mask mix:               {DEFAULT_IC_MASK_MIX}")
-    print(f"IC vax mix:                {DEFAULT_IC_VAX_MIX}")
     print()
 
-    for selection_label, selection in (("no self-selection", 1.0),
-                                       ("0.5x self-selection", 0.5)):
-        agg = aggregate_event_risk(event, prev, self_selection=selection)
-        print(f"--- {selection_label} ---")
+    scenarios = [
+        ("regimented IC (specialist-guided, self-selected, no selection adj.)",
+         DEFAULT_IC_MASK_MIX, DEFAULT_IC_VAX_MIX, 1.0),
+        ("regimented IC (specialist-guided, with 0.5x self-selection)",
+         DEFAULT_IC_MASK_MIX, DEFAULT_IC_VAX_MIX, 0.5),
+        ("general IC distribution (no selection adj.)",
+         GENERAL_IC_MASK_MIX, GENERAL_IC_VAX_MIX, 1.0),
+    ]
+
+    for label, mask_mix, vax_mix, selection in scenarios:
+        print(f"--- {label} ---")
+        print(f"IC mask mix: {mask_mix}")
+        print(f"IC vax mix:  {vax_mix}")
+        agg = aggregate_event_risk(event, prev, ic_mask_mix=mask_mix,
+                                   ic_vax_mix=vax_mix,
+                                   self_selection=selection)
         print(f"Expected IC attendees:            "
               f"{agg['expected_ic_attendees']:.2f} total")
         for sev, n in agg["ic_by_severity"].items():

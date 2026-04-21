@@ -254,11 +254,14 @@ Values in `risk.py` are synthesized midpoints. Each cell carries roughly
   Moderate = biologics, methotrexate, mid-dose steroids, HIV low-normal
   CD4. Mild = low-dose prednisone, controlled HIV, asplenia.
 
-  Default attendee mask mix (DEFAULT_IC_MASK_MIX) and vax mix
-  (DEFAULT_IC_VAX_MIX) reflect realistic behavior of IC attendees:
-  more protected than the general population but not all in fit-tested
-  N95s. Values are informed but not measured - sensitivity analysis
-  recommended.
+  Default IC mask/vax mixes (DEFAULT_IC_MASK_MIX, DEFAULT_IC_VAX_MIX)
+  assume specialist-guided regimen compliance: IC attendees at this
+  kind of event are heavily self-selected for thoughtful risk
+  management, so ~90% fit-tested N95 and ~90% current-season vaccinated
+  (40% with PrEP, 50% vax-only). Less-regimented alternative mixes
+  (GENERAL_IC_MASK_MIX, GENERAL_IC_VAX_MIX) are provided for
+  sensitivity analysis. The regimented assumption yields ~6x lower
+  per-IC infection risk than the general-population IC distribution.
 
 ## Method limitations
 
@@ -322,26 +325,29 @@ mask/vax distribution among IC attendees:
 | No self-selection | 5.15 | 1.13 | 2.83 | 1.18 |
 | 0.5x self-selection | 2.57 | 0.57 | 1.42 | 0.59 |
 
-Per-IC-person weighted infection risk (across realistic mask mix):
-**20 - 61 per million** (much higher than the fit-tested N95 lower
-bound because most IC attendees aren't in fit-tested N95s).
+Per-IC-person weighted infection risk (regimented default:
+90% fit-N95 / 10% casual-N95): **3.3 - 9.8 per million**.
 
-**Per-event aggregate risk (no self-selection):**
+**Per-event aggregate risk (regimented IC, no self-selection):**
 
 | Outcome | Expected count | P(>=1 event) |
 |---|---|---|
-| IC attendee infected | 105 - 314 per million | ~1 in 9,500 - 3,200 |
-| IC attendee hospitalized (all IC) | 4.3 - 12.9 per million | ~1 in 233K - 78K |
-| IC attendee hospitalized (mod+sev only) | 3.9 - 11.7 per million | - |
-| IC attendee with long COVID | 10.8 - 32.5 per million | ~1 in 92K - 31K |
+| IC attendee infected | 17 - 50 per million | ~1 in 60K - 20K |
+| IC attendee hospitalized (all IC) | 366 ppB - 1.1 per million | ~1 in 2.7M - 910K |
+| IC attendee hospitalized (mod+sev only) | 334 ppB - 1.0 per million | - |
+| IC attendee with long COVID | 1.3 - 3.9 per million | ~1 in 765K - 255K |
 
 **Annual totals at monthly cadence (12 events/year):**
 
 | Outcome | Expected cases per year |
 |---|---|
-| IC infections | 12.6 - 37.7 per 10,000 (~1 in 265 - 795) |
-| IC hospitalizations (all IC) | 51 - 154 per million (~1 in 6,500 - 20K) |
-| IC long-COVID cases | 1.3 - 3.9 per 10,000 (~1 in 2,600 - 7,700) |
+| IC infections | 2.0 - 6.1 per 10,000 (~1 in 1,650 - 4,950) |
+| IC hospitalizations (all IC) | 4.4 - 13.2 per million (~1 in 76K - 227K) |
+| IC long-COVID cases | 15.7 - 47.1 per million (~1 in 21K - 64K) |
+
+Sensitivity: using the general-population IC mask/vax distribution
+instead (GENERAL_IC_MASK_MIX) raises all aggregate risks ~6x. The
+regimented assumption is material to the numbers.
 
 ### Other key findings
 
