@@ -89,7 +89,22 @@ class Event:
     # faster clearance; averaged over infectious period ~25-35% lower.
     ve_shedding: float = 0.30
 
-    def quanta_per_hour(self, percentile: str = "median") -> float:
+    def quanta_per_hour(self, percentile: str = "mean") -> float:
+        """Time-weighted q/hr across activity segments.
+
+        percentile: 'median', 'p90', or 'mean'.
+        'mean' is the log-normal expectation over the viral-load
+        distribution; this is the right quantity for expected infection
+        risk. Median and p90 are scenario points for sanity-checking.
+        """
+        if percentile == "mean":
+            med = self.quanta_per_hour("median")
+            p90 = self.quanta_per_hour("p90")
+            if med <= 0 or p90 <= med:
+                return med
+            # log-normal: p90 = median * exp(1.2816 * sigma)
+            sigma = math.log(p90 / med) / 1.2816
+            return med * math.exp(sigma ** 2 / 2)
         idx = 0 if percentile == "median" else 1
         total_minutes = sum(s.minutes for s in self.activities)
         weighted = sum(s.minutes * QUANTA_RATES[s.activity][idx]
@@ -185,7 +200,7 @@ P_HOSP_GIVEN_INFECTION = {
 
 
 def per_event_infection_prob(event, prev, mask_filtration,
-                             quanta_percentile="median"):
+                             quanta_percentile="mean"):
     """Return (low, high) P(infection) bracketed by prevalence range."""
     # Wells-Riley steady-state:
     #   C = Q / (ACH * V)
@@ -234,6 +249,7 @@ def main():
 
     q_med = event.quanta_per_hour("median")
     q_p90 = event.quanta_per_hour("p90")
+    q_mean = event.quanta_per_hour("mean")
     p_low = prev.community_infectious_low * prev.event_attendable_fraction
     p_high = prev.community_infectious_high * prev.event_attendable_fraction
 
@@ -245,25 +261,28 @@ def main():
               f"median={med:>5.2f} q/hr  p90={p90:>6.1f} q/hr")
     print(f"  {'':>5} --- total: {total_min:.0f} min")
     print()
-    print(f"Time-weighted quanta per infectious attendee:")
+    print("Time-weighted quanta per infectious attendee (lognormal):")
     print(f"  median:          {q_med:.2f} q/hr")
+    print(f"  mean (expected): {q_mean:.2f} q/hr  <-- used for risk")
     print(f"  90th percentile: {q_p90:.2f} q/hr")
     print()
-    print(f"Effective attendee prevalence:   {p_low*100:.3f}% - {p_high*100:.3f}%")
+    print(f"Effective attendee prevalence:   "
+          f"{p_low*100:.3f}% - {p_high*100:.3f}%")
     print(f"Expected infectious attendees:   "
           f"{(event.attendees-1) * p_low:.3f} - "
           f"{(event.attendees-1) * p_high:.3f}")
     print()
 
-    for percentile in ("median", "p90"):
-        print(f"=== Per-event infection probability, quanta={percentile} ===")
-        for mask_name in ("none", "surgical", "kn95_typical",
-                          "n95_casual", "n95_fit_tested"):
-            mask = MASK_PROTECTION[mask_name]
-            lo, hi = per_event_infection_prob(event, prev, mask, percentile)
-            print(f"  {mask_name:<16} filt={mask:.2f}   "
-                  f"{fmt(lo)} - {fmt(hi)}")
-        print()
+    print("=== Expected per-event infection probability by mask ===")
+    print("(uses lognormal mean of emitter distribution; range from "
+          "prevalence bounds)")
+    for mask_name in ("none", "surgical", "kn95_typical",
+                      "n95_casual", "n95_fit_tested"):
+        mask = MASK_PROTECTION[mask_name]
+        lo, hi = per_event_infection_prob(event, prev, mask, "mean")
+        print(f"  {mask_name:<16} filt={mask:.2f}   "
+              f"{fmt(lo)} - {fmt(hi)}")
+    print()
 
     mask = MASK_PROTECTION["n95_fit_tested"]
     print("=== Peer vaccination sensitivity ===")
@@ -275,13 +294,12 @@ def main():
         prev_factor = event.peer_vax_prevalence_factor()
         emit_factor = event.peer_vax_emission_factor()
         combined = prev_factor * emit_factor
-        lo_med, hi_med = per_event_infection_prob(event, prev, mask, "median")
+        lo, hi = per_event_infection_prob(event, prev, mask, "mean")
         print(f"  {int(cs_vax*100):>3d}% current-season vaxxed   "
               f"prevalence x{prev_factor:.3f} * "
               f"emission x{emit_factor:.3f} = x{combined:.3f}")
-        print(f"    P(infection) median emitter: "
-              f"{fmt(lo_med)} - {fmt(hi_med)}")
-    event.peer_current_season_vax_fraction = 0.25  # user scenario
+        print(f"    E[P(infection)]: {fmt(lo)} - {fmt(hi)}")
+    event.peer_current_season_vax_fraction = 0.25
     print()
 
     print("=== Peer masking sensitivity ===")
@@ -291,28 +309,24 @@ def main():
     for f in (0.0, 0.5, 1.0):
         event.peer_masking_fraction = f
         emission = event.effective_source_emission_factor()
-        lo_med, hi_med = per_event_infection_prob(event, prev, mask, "median")
-        lo_p90, hi_p90 = per_event_infection_prob(event, prev, mask, "p90")
+        lo, hi = per_event_infection_prob(event, prev, mask, "mean")
         print(f"  {int(f*100):>3d}% peers masked   "
               f"mask-emission factor = {emission:.3f}")
-        print(f"    P(infection) median emitter: "
-              f"{fmt(lo_med)} - {fmt(hi_med)}")
-        print(f"    P(infection) p90 emitter:    "
-              f"{fmt(lo_p90)} - {fmt(hi_p90)}")
+        print(f"    E[P(infection)]: {fmt(lo)} - {fmt(hi)}")
     event.peer_masking_fraction = 0.0
     print()
 
-    lo_med, hi_med = per_event_infection_prob(event, prev, mask, "median")
-    lo_p90, hi_p90 = per_event_infection_prob(event, prev, mask, "p90")
-    print("=== Hospitalization risk, N95 fit-tested, 0% peer masking ===")
+    lo, hi = per_event_infection_prob(event, prev, mask, "mean")
+    print("=== Hospitalization risk grid ===")
+    print("(N95 fit-tested attendee, 0% peer masking, 25% peer vax, "
+          "no-symptoms policy)")
     print(f"{'IC':<10}{'Protection':<12}{'P(hosp|inf)':<14}"
-          f"{'P(hosp per event), median - p90'}")
-    print("-" * 82)
+          f"{'E[P(hosp per event)]'}")
+    print("-" * 70)
     for (ic, prot), p_h in P_HOSP_GIVEN_INFECTION.items():
-        med_lo, med_hi = per_event_hosp_prob(ic, prot, lo_med, hi_med)
-        p90_lo, p90_hi = per_event_hosp_prob(ic, prot, lo_p90, hi_p90)
+        hosp_lo, hosp_hi = per_event_hosp_prob(ic, prot, lo, hi)
         print(f"{ic:<10}{prot:<12}{p_h*100:>5.1f}%        "
-              f"{fmt(med_lo)} - {fmt(p90_hi)}")
+              f"{fmt(hosp_lo)} - {fmt(hosp_hi)}")
 
 
 if __name__ == "__main__":

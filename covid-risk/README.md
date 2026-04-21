@@ -31,11 +31,19 @@ Edit `Event`, `Prevalence`, or `MASK_PROTECTION` in `risk.py` to change inputs.
   (~3 q/hr median, ~20 q/hr p90).
   https://pmc.ncbi.nlm.nih.gov/articles/PMC7474922/
 
-  We time-weight these over the event's activity segments rather than
-  using a single hand-picked `quanta_per_hour`. The distinction between
-  median and 90th percentile is the biggest remaining uncertainty:
-  most infectious attendees shed near the median; occasional
-  "high-emitter" hosts can reach the p90. Report both bounds.
+  We time-weight these over the event's activity segments. Buonanno
+  states "All quanta emission rate (ERq) distributions are lognormal."
+  The expected per-event infection risk is computed using the
+  **lognormal mean** of this distribution, derived from the published
+  median and 90th percentile:
+
+    sigma = ln(p90 / median) / 1.2816
+    mean  = median * exp(sigma^2 / 2)
+
+  For our default activity mix (81 min listening + 25 min talking
+  + 4 min singing + 10 min eating): median = 2.6 q/hr, p90 = 21.5
+  q/hr, giving **mean = ~10.1 q/hr**. Using the median alone would
+  underestimate risk by ~4x (right-skew of the lognormal).
 
 - **ICRP / EPA Exposure Factors Handbook.** Sedentary adult breathing
   rate ~0.5 m^3/hr.
@@ -226,27 +234,24 @@ Values in `risk.py` are synthesized midpoints. Each cell carries roughly
 Defaults: 81 min listening + 25 min discussion + 4 min singing
 + 10 min eating; 25% of peers current-season vaxxed;
 no-symptoms attendable fraction 0.47; 0% peer masking.
-Time-weighted quanta per infectious attendee:
-**2.6 q/hr median, 21.5 q/hr 90th percentile.**
+Expected quanta per infectious attendee: **10.1 q/hr (lognormal mean).**
 
-### Peer vaccination sensitivity (attendee in fit-tested N95, 0% peer masking)
+### Peer vaccination sensitivity (N95 fit-tested, 0% peer masking)
 
-| Peers current-season vaxxed | Transmission multiplier | P(inf) median emitter |
+| Peers current-season vaxxed | Transmission multiplier | E[P(inf)] |
 |---|---|---|
-| 0%   | 1.000 | 613 ppB - 1.84 ppM |
-| 25%  | 0.881 | 540 ppB - 1.62 ppM |
-| 50%  | 0.762 | 467 ppB - 1.40 ppM |
-| 100% | 0.525 | 322 - 965 ppB |
+| 0%   | 1.000 | 2.38 - 7.13 ppM |
+| 25%  | 0.881 | 2.09 - 6.28 ppM |
+| 50%  | 0.762 | 1.81 - 5.44 ppM |
+| 100% | 0.525 | 1.25 - 3.74 ppM |
 
-### Peer masking sensitivity (attendee in fit-tested N95, 25% current-season vax)
+### Peer masking sensitivity (N95 fit-tested, 25% peer vax)
 
-25% each cloth/surgical/KN95/N95 mix among masked peers:
-
-| Peers masked | Mask-emission factor | P(inf) median emitter | P(inf) p90 emitter |
-|---|---|---|---|
-| 0%   | 1.000 | 540 ppB - 1.62 ppM | 4.5 - 13.4 ppM |
-| 50%  | 0.637 | 344 ppB - 1.03 ppM | 2.8 - 8.5 ppM |
-| 100% | 0.275 | 149 - 446 ppB      | 1.2 - 3.7 ppM |
+| Peers masked | Emission factor | E[P(inf)] |
+|---|---|---|
+| 0%   | 1.000 | 2.09 - 6.28 ppM |
+| 50%  | 0.637 | 1.34 - 4.01 ppM |
+| 100% | 0.275 | 576 ppB - 1.73 ppM |
 
 (ppB = per billion; ppM = per million)
 
