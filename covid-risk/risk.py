@@ -1,0 +1,170 @@
+"""
+Event COVID risk calculator for an immunocompromised attendee.
+
+Infection probability: Wells-Riley (well-mixed room, steady state).
+Severity: P(hospitalization | infection) conditional on IC severity and
+vaccination/PrEP status.
+
+  P(hosp per event) = P(infected per event) * P(hosp | infected)
+
+All numerical inputs are cited in README.md. Numbers with wide literature
+ranges are expressed as low/high bounds.
+"""
+
+import math
+from dataclasses import dataclass
+
+
+@dataclass
+class Event:
+    attendees: int = 100
+    duration_hours: float = 2.0
+    # Basketball court ~ 94 ft x 50 ft x 25 ft ceiling = ~3,300 m^3.
+    room_volume_m3: float = 3300.0
+    # ASHRAE 62.1 design guidance for education facilities is 6-8 ACH;
+    # typical older / imperfectly maintained gym often lower.
+    # Use 3 as a conservative default; sweep 1.5-6 for sensitivity.
+    air_changes_per_hour: float = 3.0
+    # Quanta per hour per infectious source, averaged over event.
+    # Buonanno 2020: breathing at rest 10.5 q/hr; speaking 320 q/hr.
+    # Mostly-seated audience with amplified speaker + ~10% discussion
+    # bursts at normal volume gives a population-average near 20 q/hr
+    # across infectious attendees with varying viral loads.
+    quanta_per_hour: float = 20.0
+    # ICRP / EPA Exposure Factors Handbook: sedentary adult ~0.5 m^3/hr.
+    breathing_rate_m3_per_hour: float = 0.5
+
+
+@dataclass
+class Prevalence:
+    # SF wastewater is LOW / flat (Oceanside ~1.6, R~1.01 as of 2026-04-10).
+    # Community infectious prevalence plausibly 0.1-0.3% in this regime.
+    community_infectious_low: float = 0.001
+    community_infectious_high: float = 0.003
+    # Fraction of infectious person-days that belong to people feeling
+    # well enough to attend (asymptomatic + presymptomatic + mild).
+    # Buitrago-Garcia 2022 living SR: ~35% truly asymptomatic; add
+    # presymptomatic window of 1-3 days -> roughly 40-50% of
+    # infectious person-days are "attendable".
+    event_attendable_fraction: float = 0.45
+
+
+# Receiver-side fitted filtration efficiency (fraction blocked). Sources:
+# - Sickbert-Bennett et al., JAMA Intern Med 2020: N95 98.5% FFE;
+#   surgical w/ ear loops 38.1%; surgical w/ ties ~71.5%.
+# - Pan et al., PLOS ONE 2021: KN95s filter 57-77% when worn.
+# - Oberg & Brosseau, AJIC 2008: non-fit-tested N95 ~67% (33% penetration);
+#   fit-tested ~96%.
+MASK_PROTECTION = {
+    "none":           0.00,
+    "surgical":       0.38,
+    "kn95_typical":   0.67,
+    "n95_casual":     0.67,
+    "n95_fit_tested": 0.95,
+}
+
+
+# P(hospitalization | infection) by IC severity x protection. Midpoints of
+# ranges synthesized from:
+# - IDSA 2025 Guidelines (RR ~2.75 severe outcomes in IC vs non-IC).
+# - Lancet Reg Health Europe, INFORM study 2023: IC = 4% population,
+#   22% of COVID hospitalizations/deaths.
+# - MMWR IVY Network 2024-2025 VE: ~36% against hospitalization in IC >=65.
+# - Wang 2023 BC population study: IC RR ~6-10x for hospitalization.
+# Baseline adult (Omicron, unvaccinated) hospitalization-per-infection
+# is ~1-3%; applying the IC multipliers and vaccine effectiveness gives
+# these midpoints. Uncertainty here is at least +/- 2x per cell.
+P_HOSP_GIVEN_INFECTION = {
+    ("severe",   "vax+prep"): 0.020,
+    ("severe",   "vax_only"): 0.055,
+    ("severe",   "old_vax"):  0.115,
+    ("severe",   "none"):     0.200,
+
+    ("moderate", "vax+prep"): 0.007,
+    ("moderate", "vax_only"): 0.020,
+    ("moderate", "old_vax"):  0.045,
+    ("moderate", "none"):     0.080,
+
+    ("mild",     "vax+prep"): 0.003,
+    ("mild",     "vax_only"): 0.010,
+    ("mild",     "old_vax"):  0.020,
+    ("mild",     "none"):     0.040,
+}
+
+
+def per_event_infection_prob(event, prev, mask_filtration):
+    """Return (low, high) P(infection) bracketed by prevalence range."""
+    # Wells-Riley steady-state:
+    #   C = Q / (ACH * V)
+    #   n_per_source = C * breathing * duration
+    #   P(inf) = 1 - exp(-N_inf * n_per_source * (1 - mask))
+    C = event.quanta_per_hour / (event.air_changes_per_hour * event.room_volume_m3)
+    n_per_source = C * event.breathing_rate_m3_per_hour * event.duration_hours
+    effective_dose = n_per_source * (1 - mask_filtration)
+
+    probs = []
+    for p_comm in (prev.community_infectious_low, prev.community_infectious_high):
+        p_event_attendee = p_comm * prev.event_attendable_fraction
+        expected_infectious = (event.attendees - 1) * p_event_attendee
+        probs.append(1 - math.exp(-expected_infectious * effective_dose))
+    return min(probs), max(probs)
+
+
+def per_event_hosp_prob(ic, protection, p_inf_low, p_inf_high):
+    p_h = P_HOSP_GIVEN_INFECTION[(ic, protection)]
+    return p_inf_low * p_h, p_inf_high * p_h
+
+
+def fmt(p):
+    if p <= 0:
+        return "0"
+    if p < 1e-6:
+        return f"{p*1e9:.2f} per billion"
+    if p < 1e-4:
+        return f"{p*1e6:.2f} per million"
+    if p < 1e-2:
+        return f"{p*1e4:.2f} per 10,000"
+    return f"{p*100:.2f}%"
+
+
+def main():
+    event = Event()
+    prev = Prevalence()
+
+    C = event.quanta_per_hour / (event.air_changes_per_hour * event.room_volume_m3)
+    n_per_source = C * event.breathing_rate_m3_per_hour * event.duration_hours
+    p_low = prev.community_infectious_low * prev.event_attendable_fraction
+    p_high = prev.community_infectious_high * prev.event_attendable_fraction
+
+    print("=== Intermediate values ===")
+    print(f"Quanta concentration:            {C:.6f} quanta/m^3")
+    print(f"Quanta inhaled per infectious:   {n_per_source:.6f}")
+    print(f"Effective attendee prevalence:   {p_low*100:.3f}% - {p_high*100:.3f}%")
+    print(f"Expected infectious attendees:   "
+          f"{(event.attendees-1) * p_low:.3f} - "
+          f"{(event.attendees-1) * p_high:.3f}")
+    print()
+
+    print("=== Per-event infection probability by mask ===")
+    for mask_name in ("none", "surgical", "kn95_typical",
+                      "n95_casual", "n95_fit_tested"):
+        mask = MASK_PROTECTION[mask_name]
+        lo, hi = per_event_infection_prob(event, prev, mask)
+        print(f"  {mask_name:<16} filt={mask:.2f}   "
+              f"{fmt(lo)} - {fmt(hi)}")
+    print()
+
+    mask = MASK_PROTECTION["n95_fit_tested"]
+    p_inf_lo, p_inf_hi = per_event_infection_prob(event, prev, mask)
+    print("=== Hospitalization risk, N95 fit-tested ===")
+    print(f"{'IC':<10}{'Protection':<12}{'P(hosp|inf)':<14}"
+          f"{'P(hosp per event)'}")
+    print("-" * 72)
+    for (ic, prot), p_h in P_HOSP_GIVEN_INFECTION.items():
+        lo, hi = per_event_hosp_prob(ic, prot, p_inf_lo, p_inf_hi)
+        print(f"{ic:<10}{prot:<12}{p_h*100:>5.1f}%        "
+              f"{fmt(lo)} - {fmt(hi)}")
+
+
+if __name__ == "__main__":
+    main()
