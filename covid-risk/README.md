@@ -47,7 +47,7 @@ Edit `Event`, `Prevalence`, or `MASK_PROTECTION` in `risk.py` to change inputs.
   or under-maintained gyms are often lower. We use 3 as a conservative
   mid-range default.
 
-### Mask filtration
+### Mask filtration (receiver-side / wearer protection)
 
 - **Sickbert-Bennett et al., "Filtration Efficiency of Hospital Face
   Mask Alternatives Available for Use During the COVID-19 Pandemic,"
@@ -65,6 +65,51 @@ Edit `Event`, `Prevalence`, or `MASK_PROTECTION` in `risk.py` to change inputs.
   *American Journal of Infection Control* 2008.** Non-fit-tested N95
   average aerosol penetration ~33% (i.e. FFE ~67%); fit-tested ~96%.
   https://pubmed.ncbi.nlm.nih.gov/16490606/
+
+### Mask source control (emitter-side)
+
+`SOURCE_CONTROL` values are consensus midpoints across multiple
+peer-reviewed studies. Individual studies disagree, especially for
+cloth masks (see note below).
+
+- **Lai et al., "Relative efficacy of masks and respirators as source
+  control for viral aerosol shedding from people infected with
+  SARS-CoV-2: a controlled human exhaled breath aerosol experimental
+  study," *eBioMedicine* 2024.** n=44 infected volunteers, paired
+  masked/unmasked breath samples. Reduction in SARS-CoV-2 viral load:
+  N95 98%, cloth 87%, surgical 74%, KN95 71%.
+  https://pubmed.ncbi.nlm.nih.gov/38821778/
+
+- **Lindsley et al., "A comparison of performance metrics for cloth
+  face masks as source control devices for simulated cough and
+  exhalation aerosols," *Aerosol Science and Technology* 2021.**
+  Manikin study, 15 cloth masks + 2 surgical + 2 N95. Cloth source
+  control: 17-71% for coughing, 35-66% for exhalation. N95 range
+  83-99%.
+  https://pmc.ncbi.nlm.nih.gov/articles/PMC7899465/
+
+- **Asadi et al., "Efficacy of masks and face coverings in controlling
+  outward aerosol particle emission from expiratory activities,"
+  *Scientific Reports* 2020.** Surgical and unvented KN95: ~90% and
+  74% reduction in outward particle emission during speaking and
+  coughing respectively. Note: homemade cotton cloth masks were found
+  to *increase* raw particle counts due to cotton fiber shedding, but
+  this confounds measurement - the shed fibers don't contain virus.
+  https://www.nature.com/articles/s41598-020-72798-7
+
+- **CDC Science Brief: Community Use of Masks to Control the Spread of
+  SARS-CoV-2.** Multi-layer cloth masks block 50-70% of fine droplets;
+  up to 80% in some human experiments.
+  https://www.cdc.gov/coronavirus/2019-ncov/science/science-briefs/masking-science-sars-cov2.html
+
+**Note on cloth masks:** Lai 2024 found cloth > surgical (87% vs 74%),
+but this is an outlier vs. the broader literature, which puts cloth in
+a wide 30-70% range and surgical at 70-90%. The discrepancy likely
+reflects (a) Lai's direct viral-load measurement vs. particle counting
+used in older studies, and (b) cloth-mask quality has improved
+substantially since 2020. We use the consensus midpoint (50%) for
+cloth with a known wide variance; this is conservative relative to
+Lai 2024.
 
 ### Asymptomatic / presymptomatic prevalence
 
@@ -147,19 +192,26 @@ Activity breakdown: 81 min listening + 25 min discussion + 4 min singing
 + 10 min eating. Time-weighted quanta per infectious attendee:
 **2.6 q/hr median, 21.5 q/hr 90th percentile.**
 
-```
-Per-event infection probability (N95 fit-tested):
-  median emitter:  0.59 - 1.76 per million
-  p90 emitter:     4.84 - 14.52 per million
+### Peer masking sensitivity (attendee in fit-tested N95)
 
-Hospitalization risk (median - p90 span), moderately IC + current vax, N95 fit:
-  ~12 per billion - 290 per billion
-```
+25% each cloth/surgical/KN95/N95 mix among masked peers:
 
-The biggest remaining uncertainty is whether any infectious attendee is
-a "high emitter" (p90) versus a "typical emitter" (median). The range
-spans roughly an order of magnitude.
+| Peers masked | Quanta factor | P(inf) median emitter | P(inf) p90 emitter |
+|---|---|---|---|
+| 0%   | 1.000 | 587 ppB - 1.76 ppM | 4.8 - 14.5 ppM |
+| 50%  | 0.637 | 374 ppB - 1.12 ppM | 3.1 - 9.3 ppM |
+| 100% | 0.275 | 161 - 484 ppB      | 1.3 - 4.0 ppM |
 
-Another striking takeaway: **4 minutes of singing contributes ~49% of
-the median total quanta emission** despite being only 3% of event time.
-Removing or masking the singing segment would roughly halve the risk.
+(ppB = per billion; ppM = per million)
+
+Going 50% -> 100% peer masking = ~2.3x risk reduction
+(emission factor drops from 0.637 to 0.275).
+
+### Other key findings
+
+- **4 minutes of singing contributes ~49% of median total quanta
+  emission** despite being only 3% of event time. Removing or masking
+  the singing segment roughly halves the risk.
+- The biggest remaining uncertainty is whether any infectious attendee
+  is a "high emitter" (p90) vs "typical emitter" (median) - a ~10x
+  spread.

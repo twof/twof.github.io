@@ -27,6 +27,23 @@ QUANTA_RATES = {
 }
 
 
+# Source-control values (fraction of emitted aerosol blocked when an
+# infectious person wears the mask). Consensus midpoints across:
+# - Lai et al. 2024 (eBioMedicine, n=44 infected humans, viral load)
+# - Lindsley et al. 2021 (Aerosol Sci Technol, manikin, 15 cloth masks)
+# - Asadi et al. 2020 (Sci Reports, healthy-volunteer speech particles)
+# - CDC Science Brief 2021; systematic reviews (Chou 2020, Tran 2024)
+# Cloth has wide variance (30-70%); surgical more consistent;
+# N95 dominant. No-fit-test values used.
+SOURCE_CONTROL = {
+    "none":     0.00,
+    "cloth":    0.50,
+    "surgical": 0.70,
+    "kn95":     0.75,
+    "n95":      0.95,
+}
+
+
 @dataclass
 class ActivitySegment:
     activity: str
@@ -39,28 +56,39 @@ class Event:
     duration_hours: float = 2.0
     room_volume_m3: float = 3300.0
     air_changes_per_hour: float = 3.0
-    # Activity breakdown for a typical infectious attendee over the event.
-    # Defaults: 2-hour meeting = 4 min singing + 25 min discussion
-    # + 10 min eating + 81 min quiet listening.
     activities: list = field(default_factory=lambda: [
         ActivitySegment("breathing", 81.0),
         ActivitySegment("speaking",  25.0),
         ActivitySegment("singing_loud", 4.0),
         ActivitySegment("eating",    10.0),
     ])
-    # ICRP / EPA: sedentary adult ~0.5 m^3/hr.
     breathing_rate_m3_per_hour: float = 0.5
+    # Fraction of non-attendee peers who are wearing any mask.
+    peer_masking_fraction: float = 0.0
+    # Distribution of mask types among those who do mask.
+    # Must sum to 1.0. Default: even mix across the four types.
+    peer_mask_mix: dict = field(default_factory=lambda: {
+        "cloth":    0.25,
+        "surgical": 0.25,
+        "kn95":     0.25,
+        "n95":      0.25,
+    })
 
     def quanta_per_hour(self, percentile: str = "median") -> float:
-        """Time-weighted average q/hr across activity segments.
-
-        percentile: 'median' or 'p90'.
-        """
         idx = 0 if percentile == "median" else 1
         total_minutes = sum(s.minutes for s in self.activities)
         weighted = sum(s.minutes * QUANTA_RATES[s.activity][idx]
                        for s in self.activities)
         return weighted / total_minutes
+
+    def effective_source_emission_factor(self) -> float:
+        """Fraction of baseline (unmasked) quanta emission per infectious
+        peer, averaged over the masking assumptions.
+        """
+        avg_sc = sum(self.peer_mask_mix[m] * SOURCE_CONTROL[m]
+                     for m in self.peer_mask_mix)
+        f = self.peer_masking_fraction
+        return (1 - f) * 1.0 + f * (1 - avg_sc)
 
 
 @dataclass
@@ -128,6 +156,7 @@ def per_event_infection_prob(event, prev, mask_filtration,
     #   n_per_source = C * breathing * duration
     #   P(inf) = 1 - exp(-N_inf * n_per_source * (1 - mask))
     q_per_hr = event.quanta_per_hour(quanta_percentile)
+    q_per_hr *= event.effective_source_emission_factor()
     C = q_per_hr / (event.air_changes_per_hour * event.room_volume_m3)
     n_per_source = C * event.breathing_rate_m3_per_hour * event.duration_hours
     effective_dose = n_per_source * (1 - mask_filtration)
@@ -195,10 +224,27 @@ def main():
         print()
 
     mask = MASK_PROTECTION["n95_fit_tested"]
+    print("=== Peer masking sensitivity ===")
+    print("(attendee in fit-tested N95; 25% each of "
+          "cloth/surgical/KN95/N95 among masked peers)")
+    print()
+    for f in (0.0, 0.5, 1.0):
+        event.peer_masking_fraction = f
+        emission = event.effective_source_emission_factor()
+        lo_med, hi_med = per_event_infection_prob(event, prev, mask, "median")
+        lo_p90, hi_p90 = per_event_infection_prob(event, prev, mask, "p90")
+        print(f"  {int(f*100):>3d}% peers masked   "
+              f"emission factor = {emission:.3f}")
+        print(f"    P(infection) median emitter: "
+              f"{fmt(lo_med)} - {fmt(hi_med)}")
+        print(f"    P(infection) p90 emitter:    "
+              f"{fmt(lo_p90)} - {fmt(hi_p90)}")
+    event.peer_masking_fraction = 0.0
+    print()
+
     lo_med, hi_med = per_event_infection_prob(event, prev, mask, "median")
     lo_p90, hi_p90 = per_event_infection_prob(event, prev, mask, "p90")
-
-    print("=== Hospitalization risk, N95 fit-tested ===")
+    print("=== Hospitalization risk, N95 fit-tested, 0% peer masking ===")
     print(f"{'IC':<10}{'Protection':<12}{'P(hosp|inf)':<14}"
           f"{'P(hosp per event), median - p90'}")
     print("-" * 82)
