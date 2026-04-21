@@ -13,6 +13,39 @@ Edit `Event`, `Prevalence`, or `MASK_PROTECTION` in `risk.py` to change inputs.
 
 ## Sources
 
+### Humidity and transient dose corrections
+
+- **Marr et al., "Mechanistic insights into the effect of humidity
+  on airborne influenza virus survival, transmission and incidence,"
+  *Journal of the Royal Society Interface* 2019.** Aerosol
+  infectivity has a U-shaped relationship with relative humidity:
+  highest at very low RH (<30%), lowest around 50-70%. Droplet
+  behavior and viral membrane stability both contribute.
+  https://pubmed.ncbi.nlm.nih.gov/30958128/
+
+- **Yang & Marr 2011/2012.** Quantitative RH effects on aerosol
+  viral survival. Model uses piecewise linear approximation:
+  1.7x at RH<20%, 1.0x at RH=40%, 0.7x at RH=60%, 0.5x at RH>=80%.
+
+- **Transient Wells-Riley correction.** Steady-state time-weighted
+  dose overestimates total inhaled quanta because late-emitted
+  particles don't have full exposure time to be inhaled. For
+  uniform-quanta emission, the correction factor is
+  `1 - (1 - exp(-ACH*T)) / (ACH*T)`. At ACH=3, T=2h: factor = 0.83.
+  Assumes uniform temporal distribution of quanta (ordering-agnostic)
+  to avoid spurious sensitivity to assumed activity sequence.
+
+### Row seating and close-contact transmission
+
+Wells-Riley assumes well-mixed air. This is approximately valid
+when attendees are spread out (rows of seats vs. buffet clustering).
+For the default 2-hour meeting with rows + in-seat eating (no buffet
+congregation), the well-mixed assumption is reasonable. If food
+service involved clustering at a table, short-range transmission
+(within 1-2m of an infectious person) could add 2-5x local dose
+beyond the room average; this is NOT modeled. Row seating with
+in-seat eating ~ eliminates that correction.
+
 ### Wells-Riley / quanta emission
 
 - **Buonanno et al., "Quantitative assessment of the risk of airborne
@@ -375,7 +408,24 @@ mask/vax distribution among IC attendees:
 | 0.5x self-selection | 2.57 | 0.57 | 1.42 | 0.59 |
 
 Per-IC-person weighted infection risk (regimented default:
-90% fit-N95 / 10% casual-N95): **3.3 - 9.8 per million**.
+90% fit-N95 / 10% casual-N95): **2.7 - 8.2 per million**.
+(Down from 3.3-9.8 after transient-dose correction factor 0.83.)
+
+### Non-IC attendee risks (~96 attendees, unmasked, mixed vax)
+
+| Risk | Per-event | Annual (monthly cadence) |
+|---|---|---|
+| Per-person infection | 35-105 per million | - |
+| Any non-IC infected | 34 per 10,000 - 1.0% | 4% - 12% / year |
+| Any non-IC hospitalized | 31-93 per million | 3.7-11.2 per 10,000 / year |
+| Any non-IC with long COVID | 2.9-8.7 per 10,000 | 35 per 10,000 - 1.0% / year |
+
+Non-IC infection risk is ~20x higher than IC because they're unmasked;
+hospitalization/long-COVID per person is much lower because they're
+vaccinated and not IC. Across all ~96 non-IC attendees, however,
+aggregate outcomes are meaningful: at monthly cadence, there's
+roughly a 1-in-900 to 1-in-3000 chance per year that any non-IC
+attendee gets hospitalized from attendance.
 
 **Per-event aggregate risk across self-selection sensitivity
 (regimented IC, 3.6 expected IC attendees at default 0.70x):**

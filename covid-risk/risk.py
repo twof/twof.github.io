@@ -88,6 +88,50 @@ class Event:
     # vaccinated breakthroughs show similar peak viral load but ~1-2 day
     # faster clearance; averaged over infectious period ~25-35% lower.
     ve_shedding: float = 0.30
+    # Relative humidity of the event room, as a fraction (e.g., 0.40
+    # = 40% RH). Affects aerosol infectivity: low-humidity air extends
+    # infectious aerosol lifetime, high-humidity accelerates decay.
+    # Based on Marr 2019 and Yang 2011/2012: infectivity roughly
+    # halves as RH goes from 20% to 60%, then declines further above
+    # 70%.
+    relative_humidity: float = 0.40
+
+    def humidity_multiplier(self) -> float:
+        """Multiplier on effective quanta due to relative humidity.
+        1.0 at RH=0.40 (baseline); higher at low RH, lower at high RH.
+        Piecewise linear approximation of empirical curves."""
+        rh = self.relative_humidity
+        if rh < 0.20:
+            return 1.7
+        if rh < 0.40:
+            return 1.7 - (rh - 0.20) / 0.20 * 0.7   # 1.7 -> 1.0
+        if rh < 0.60:
+            return 1.0 - (rh - 0.40) / 0.20 * 0.3   # 1.0 -> 0.7
+        if rh < 0.80:
+            return 0.7 - (rh - 0.60) / 0.20 * 0.2   # 0.7 -> 0.5
+        return 0.5
+
+    def transient_dose_factor(self, percentile: str = "mean") -> float:
+        """Return the ratio of proper transient Wells-Riley dose to
+        the steady-state time-weighted approximation.
+
+        Proper transient: for each emitted quantum at time s, it decays
+        via ACH until susceptible stops inhaling at time T. Exact
+        contribution to dose is (1 - exp(-ACH*(T-s))) / ACH.
+
+        Steady-state time-weighted: treats every quantum as if the
+        room were at steady state throughout the event.
+
+        Ratio <= 1; closer to 1 when T*ACH is large. Uses uniform-
+        quanta approximation (assumes emissions are evenly distributed
+        in time) to avoid dependence on unknown activity ordering.
+        Formula: 1 - (1 - exp(-ACH*T)) / (ACH*T)
+        """
+        T = self.duration_hours
+        ACH = self.air_changes_per_hour
+        if T <= 0 or ACH <= 0:
+            return 1.0
+        return 1.0 - (1.0 - math.exp(-ACH * T)) / (ACH * T)
 
     def quanta_per_hour(self, percentile: str = "mean") -> float:
         """Time-weighted q/hr across activity segments.
@@ -296,6 +340,50 @@ GENERAL_IC_VAX_MIX = {
 }
 
 
+# P(hospitalization | infection) for non-IC adults by vaccination
+# status. Omicron-era baseline ~1-3% for unvaxxed adults (highly
+# age-dependent); vaccine effectiveness against hospitalization ~40-70%
+# for current-season, ~15-30% for older doses.
+# Sources: MMWR IVY Network 2025, NEJM Veterans Study 2025.
+P_HOSP_GIVEN_INFECTION_NON_IC = {
+    "vax_current": 0.005,   # current-season vaccine, ~60% VE vs hosp
+    "vax_old":     0.010,   # 3-dose only, waned
+    "none":        0.020,   # truly unvaccinated (rare in US adults)
+}
+
+
+# P(long COVID | infection) for non-IC adults by vaccination status.
+# Based on vaccinated Omicron general pop ~6-10% (CDC EID 2024,
+# NEJM PASC 2024). Vaccination reduces by ~23% (OR 0.77 meta-analysis).
+P_LONG_COVID_PER_INFECTION_NON_IC = {
+    "vax_current": 0.07,
+    "vax_old":     0.09,
+    "none":        0.12,
+}
+
+
+# Default vaccination distribution among non-IC adult attendees.
+# Mirrors peer_current_season_vax_fraction but split into current/old/none.
+DEFAULT_NON_IC_VAX_MIX = {
+    "vax_current": 0.25,
+    "vax_old":     0.70,   # the 3-dose baseline everyone has
+    "none":        0.05,
+}
+
+
+# Default mask-wearing distribution among non-IC adult attendees.
+# For an event with 0% peer masking (current model default), this is
+# trivially all "none"; parameterize so it can be changed if peers
+# mask at higher rates.
+DEFAULT_NON_IC_MASK_MIX = {
+    "n95_fit_tested": 0.00,
+    "n95_casual":     0.00,
+    "kn95_typical":   0.00,
+    "surgical":       0.00,
+    "none":           1.00,
+}
+
+
 # Self-selection factor: probability that an IC individual in the
 # general population will attend this event, relative to a non-IC
 # individual. Pre-pandemic data on this is sparse:
@@ -326,8 +414,12 @@ def per_event_infection_prob(event, prev, mask_filtration,
     q_per_hr = event.quanta_per_hour(quanta_percentile)
     q_per_hr *= event.effective_source_emission_factor()
     q_per_hr *= event.peer_vax_emission_factor()
+    q_per_hr *= event.humidity_multiplier()
     C = q_per_hr / (event.air_changes_per_hour * event.room_volume_m3)
     n_per_source = C * event.breathing_rate_m3_per_hour * event.duration_hours
+    # Apply non-steady-state transient correction: late-emitted quanta
+    # don't have full exposure time to be inhaled.
+    n_per_source *= event.transient_dose_factor(quanta_percentile)
     effective_dose = n_per_source * (1 - mask_filtration)
 
     probs = []
@@ -440,6 +532,21 @@ def aggregate_event_risk(event, prev,
         return (1 - math.exp(-expected_count_lo),
                 1 - math.exp(-expected_count_hi))
 
+    # Non-IC attendees: everyone minus expected IC attendees.
+    total_non_ic = event.attendees - total_ic
+    p_inf_non_ic_lo, p_inf_non_ic_hi = weighted_ic_infection_risk(
+        event, prev, DEFAULT_NON_IC_MASK_MIX)
+    w_hosp_non_ic = sum(DEFAULT_NON_IC_VAX_MIX[v] * P_HOSP_GIVEN_INFECTION_NON_IC[v]
+                        for v in DEFAULT_NON_IC_VAX_MIX)
+    w_lc_non_ic = sum(DEFAULT_NON_IC_VAX_MIX[v] * P_LONG_COVID_PER_INFECTION_NON_IC[v]
+                      for v in DEFAULT_NON_IC_VAX_MIX)
+    exp_inf_non_ic = (total_non_ic * p_inf_non_ic_lo,
+                      total_non_ic * p_inf_non_ic_hi)
+    exp_hosp_non_ic = (exp_inf_non_ic[0] * w_hosp_non_ic,
+                       exp_inf_non_ic[1] * w_hosp_non_ic)
+    exp_lc_non_ic = (exp_inf_non_ic[0] * w_lc_non_ic,
+                     exp_inf_non_ic[1] * w_lc_non_ic)
+
     return {
         "expected_ic_attendees": total_ic,
         "ic_by_severity": by_severity,
@@ -451,6 +558,14 @@ def aggregate_event_risk(event, prev,
         "p_any_ic_infected": p_any(*exp_inf),
         "p_any_ic_hospitalized": p_any(exp_hosp_lo, exp_hosp_hi),
         "p_any_ic_long_covid": p_any(exp_lc_lo, exp_lc_hi),
+        "expected_non_ic_attendees": total_non_ic,
+        "per_non_ic_infection_risk": (p_inf_non_ic_lo, p_inf_non_ic_hi),
+        "expected_non_ic_infections": exp_inf_non_ic,
+        "expected_non_ic_hospitalizations": exp_hosp_non_ic,
+        "expected_non_ic_long_covid": exp_lc_non_ic,
+        "p_any_non_ic_infected": p_any(*exp_inf_non_ic),
+        "p_any_non_ic_hospitalized": p_any(*exp_hosp_non_ic),
+        "p_any_non_ic_long_covid": p_any(*exp_lc_non_ic),
     }
 
 
@@ -476,6 +591,8 @@ def main():
     q_med = event.quanta_per_hour("median")
     q_p90 = event.quanta_per_hour("p90")
     q_mean = event.quanta_per_hour("mean")
+    humidity_mult = event.humidity_multiplier()
+    transient_factor = event.transient_dose_factor("mean")
     p_low = prev.community_infectious_low * prev.event_attendable_fraction
     p_high = prev.community_infectious_high * prev.event_attendable_fraction
 
@@ -491,6 +608,10 @@ def main():
     print(f"  median:          {q_med:.2f} q/hr")
     print(f"  mean (expected): {q_mean:.2f} q/hr  <-- used for risk")
     print(f"  90th percentile: {q_p90:.2f} q/hr")
+    print(f"Humidity multiplier @ RH={event.relative_humidity:.0%}: "
+          f"{humidity_mult:.2f}")
+    print(f"Non-steady-state transient dose factor: {transient_factor:.3f} "
+          f"(vs 1.0 steady-state)")
     print()
     print(f"Effective attendee prevalence:   "
           f"{p_low*100:.3f}% - {p_high*100:.3f}%")
@@ -609,16 +730,37 @@ def main():
                 print(f"    P(>=1 event):    {fmt(any_lo)} - {fmt(any_hi)}")
         print()
 
+        # Non-IC attendee outcomes.
+        print(f"  Non-IC attendees: {agg['expected_non_ic_attendees']:.1f}")
+        nic_p_lo, nic_p_hi = agg["per_non_ic_infection_risk"]
+        print(f"  Per-non-IC infection risk: "
+              f"{fmt(nic_p_lo)} - {fmt(nic_p_hi)}")
+        for label, key_expected, key_any in (
+            ("Non-IC attendee infected",
+             "expected_non_ic_infections", "p_any_non_ic_infected"),
+            ("Non-IC attendee hospitalized",
+             "expected_non_ic_hospitalizations", "p_any_non_ic_hospitalized"),
+            ("Non-IC attendee with long COVID",
+             "expected_non_ic_long_covid", "p_any_non_ic_long_covid"),
+        ):
+            exp_lo, exp_hi = agg[key_expected]
+            any_lo, any_hi = agg[key_any]
+            print(f"  {label}")
+            print(f"    expected count:  {fmt(exp_lo)} - {fmt(exp_hi)}")
+            print(f"    P(>=1 event):    {fmt(any_lo)} - {fmt(any_hi)}")
+        print()
+
         # Monthly cadence: 12 events/year.
         print(f"  Annual totals at monthly cadence (12 events/year):")
         n_events = 12
         for label, key_expected in (
-            ("IC infections",       "expected_infections"),
-            ("IC hospitalizations (all IC)",
-                                    "expected_hospitalizations"),
-            ("IC hospitalizations (mod+sev)",
-                                    "expected_hospitalizations_mod_sev"),
-            ("IC long-COVID cases", "expected_long_covid"),
+            ("IC infections",                "expected_infections"),
+            ("IC hospitalizations (all IC)", "expected_hospitalizations"),
+            ("IC hospitalizations (mod+sev)","expected_hospitalizations_mod_sev"),
+            ("IC long-COVID cases",          "expected_long_covid"),
+            ("Non-IC infections",            "expected_non_ic_infections"),
+            ("Non-IC hospitalizations",      "expected_non_ic_hospitalizations"),
+            ("Non-IC long-COVID cases",      "expected_non_ic_long_covid"),
         ):
             exp_lo, exp_hi = agg[key_expected]
             print(f"    {label:<34} "
