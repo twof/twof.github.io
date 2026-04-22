@@ -5,11 +5,19 @@ P(hospitalization | infection) for immunocompromised attendees.
 
 ## Usage
 
+Interactive web calculator: open `index.html` (or browse
+[twof.github.io/covid-risk/](https://twof.github.io/covid-risk/)).
+All parameters can be tuned live and the current configuration is
+encoded in the URL for sharing.
+
+The Python reference implementation (identical numbers) is:
+
 ```sh
 python3 risk.py
 ```
 
-Edit `Event`, `Prevalence`, or `MASK_PROTECTION` in `risk.py` to change inputs.
+Edit `Event`, `Prevalence`, or `MASK_PROTECTION` in `risk.py` to change
+inputs for the CLI version.
 
 ## Sources
 

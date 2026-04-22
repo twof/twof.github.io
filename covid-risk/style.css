@@ -1,0 +1,244 @@
+:root {
+  --fg: #1a1a1a;
+  --fg-soft: #555;
+  --bg: #fafaf7;
+  --panel: #ffffff;
+  --accent: #4056a1;
+  --accent-soft: #e9ecf5;
+  --border: #d7d4cc;
+  --warn: #b04a2a;
+  --ok: #2d6a4f;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-size: 15px;
+  line-height: 1.45;
+  color: var(--fg);
+  background: var(--bg);
+}
+
+header {
+  padding: 20px 28px 8px;
+  border-bottom: 1px solid var(--border);
+}
+header h1 {
+  margin: 0 0 6px;
+  font-size: 22px;
+}
+.subtitle {
+  margin: 0;
+  color: var(--fg-soft);
+  font-size: 13px;
+}
+.subtitle a { color: var(--accent); }
+
+main {
+  display: grid;
+  grid-template-columns: minmax(320px, 380px) 1fr;
+  gap: 24px;
+  padding: 20px 28px 60px;
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  main { grid-template-columns: 1fr; }
+}
+
+#controls,
+#outputs {
+  min-width: 0;
+}
+
+#controls details {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  margin-bottom: 12px;
+  padding: 10px 14px;
+}
+
+#controls details[open] {
+  padding-bottom: 14px;
+}
+
+#controls summary {
+  cursor: pointer;
+  font-weight: 600;
+  user-select: none;
+  padding: 4px 0;
+}
+
+.field {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0;
+}
+
+.field label {
+  font-size: 13px;
+  color: var(--fg-soft);
+}
+
+.field.slider {
+  grid-template-columns: 1fr;
+  gap: 2px;
+}
+
+.field.slider label {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.field.slider output {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--accent);
+}
+
+.field.inline {
+  display: inline-grid;
+  grid-template-columns: auto auto;
+}
+
+input[type="number"],
+select {
+  width: 100px;
+  padding: 4px 6px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: #fff;
+  font: inherit;
+  font-family: var(--mono);
+  font-size: 13px;
+  text-align: right;
+}
+
+select {
+  width: 100%;
+  text-align: left;
+}
+
+input[type="range"] {
+  width: 100%;
+}
+
+.mix {
+  border: 1px dashed var(--border);
+  border-radius: 4px;
+  padding: 4px 10px 6px;
+  margin: 10px 0;
+}
+.mix legend {
+  font-size: 12px;
+  color: var(--fg-soft);
+  padding: 0 4px;
+}
+.mix .field { margin: 4px 0; }
+
+.hint {
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: var(--fg-soft);
+}
+.mix-sum.warn { color: var(--warn); font-weight: 600; }
+.mix-sum.ok { color: var(--ok); }
+
+.buttons {
+  display: flex;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+button {
+  padding: 6px 12px;
+  font: inherit;
+  font-size: 13px;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+button:hover { background: #2e4180; }
+button.secondary {
+  background: #fff;
+  color: var(--accent);
+  border: 1px solid var(--accent);
+}
+
+#copy_link { background: #fff; color: var(--accent); border: 1px solid var(--accent); }
+#copy_link:hover { background: var(--accent-soft); }
+
+.output-group {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 14px 18px;
+  margin-bottom: 16px;
+}
+
+.output-group h2 {
+  margin: 0 0 10px;
+  font-size: 15px;
+  color: var(--accent);
+  border-bottom: 1px solid var(--accent-soft);
+  padding-bottom: 6px;
+}
+
+table.kv, table.grid {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+table.kv td {
+  padding: 4px 0;
+  vertical-align: top;
+}
+table.kv td:first-child {
+  color: var(--fg-soft);
+  padding-right: 10px;
+}
+table.kv td:last-child {
+  font-family: var(--mono);
+  text-align: right;
+  white-space: nowrap;
+}
+table.kv em {
+  color: var(--accent);
+  font-style: normal;
+  font-size: 11px;
+}
+
+table.grid th, table.grid td {
+  text-align: left;
+  padding: 5px 8px;
+  border-bottom: 1px solid var(--border);
+}
+table.grid th {
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 600;
+  font-size: 12px;
+}
+table.grid td:not(:first-child) {
+  font-family: var(--mono);
+  font-size: 12px;
+  text-align: right;
+  white-space: nowrap;
+}
+table.grid tbody tr:last-child td { border-bottom: none; }
+
+table.grid tr.emphasize td {
+  font-weight: 600;
+  background: #fff8e6;
+}

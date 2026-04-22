@@ -1,0 +1,283 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>COVID event risk calculator</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>COVID event risk calculator</h1>
+    <p class="subtitle">
+      Wells-Riley transmission model with IC-stratified outcomes.
+      Tune parameters on the left; outputs update live.
+      See <a href="README.md">README</a> for citations and assumptions.
+    </p>
+  </header>
+
+  <main>
+    <section id="controls" aria-label="Parameters">
+
+      <details open>
+        <summary>Event</summary>
+        <div class="field">
+          <label for="attendees">Attendees</label>
+          <input type="number" id="attendees" min="2" max="10000" step="1">
+        </div>
+        <div class="field">
+          <label for="duration_hours">Duration (hours)</label>
+          <input type="number" id="duration_hours" min="0.1" max="24" step="0.1">
+        </div>
+        <div class="field">
+          <label for="room_volume_m3">Room volume (m³)</label>
+          <input type="number" id="room_volume_m3" min="10" max="100000" step="10">
+        </div>
+        <div class="field">
+          <label for="air_changes_per_hour">Air changes per hour (ACH)</label>
+          <input type="number" id="air_changes_per_hour" min="0" max="30" step="0.1">
+        </div>
+        <div class="field">
+          <label for="breathing_rate_m3_per_hour">Breathing rate (m³/hr)</label>
+          <input type="number" id="breathing_rate_m3_per_hour" min="0.1" max="5" step="0.1">
+        </div>
+        <div class="field slider">
+          <label for="relative_humidity">Relative humidity
+            <output id="relative_humidity_out"></output>
+          </label>
+          <input type="range" id="relative_humidity" min="0" max="1" step="0.01">
+        </div>
+      </details>
+
+      <details open>
+        <summary>Activity mix (minutes)</summary>
+        <div class="field">
+          <label for="min_breathing">Quiet breathing / listening</label>
+          <input type="number" id="min_breathing" min="0" max="1440" step="1">
+        </div>
+        <div class="field">
+          <label for="min_speaking">Normal speaking</label>
+          <input type="number" id="min_speaking" min="0" max="1440" step="1">
+        </div>
+        <div class="field">
+          <label for="min_singing_loud">Singing / loud speech</label>
+          <input type="number" id="min_singing_loud" min="0" max="1440" step="1">
+        </div>
+        <div class="field">
+          <label for="min_eating">Eating</label>
+          <input type="number" id="min_eating" min="0" max="1440" step="1">
+        </div>
+        <p class="hint">Sum determines event exposure; event duration is set separately above.</p>
+      </details>
+
+      <details open>
+        <summary>Peer behavior</summary>
+        <div class="field slider">
+          <label for="peer_masking_fraction">Peers masked
+            <output id="peer_masking_fraction_out"></output>
+          </label>
+          <input type="range" id="peer_masking_fraction" min="0" max="1" step="0.01">
+        </div>
+
+        <fieldset class="mix">
+          <legend>Mix among masked peers</legend>
+          <div class="field"><label for="peer_mix_cloth">Cloth</label>
+            <input type="number" id="peer_mix_cloth" min="0" max="1" step="0.01"></div>
+          <div class="field"><label for="peer_mix_surgical">Surgical</label>
+            <input type="number" id="peer_mix_surgical" min="0" max="1" step="0.01"></div>
+          <div class="field"><label for="peer_mix_kn95">KN95</label>
+            <input type="number" id="peer_mix_kn95" min="0" max="1" step="0.01"></div>
+          <div class="field"><label for="peer_mix_n95">N95</label>
+            <input type="number" id="peer_mix_n95" min="0" max="1" step="0.01"></div>
+          <p class="hint mix-sum" id="peer_mask_mix_sum"></p>
+        </fieldset>
+
+        <div class="field slider">
+          <label for="peer_current_season_vax_fraction">Peers with current-season vaccine
+            <output id="peer_current_season_vax_fraction_out"></output>
+          </label>
+          <input type="range" id="peer_current_season_vax_fraction" min="0" max="1" step="0.01">
+        </div>
+        <div class="field slider">
+          <label for="ve_infection">VE against infection
+            <output id="ve_infection_out"></output>
+          </label>
+          <input type="range" id="ve_infection" min="0" max="0.95" step="0.01">
+        </div>
+        <div class="field slider">
+          <label for="ve_shedding">VE against shedding (breakthrough)
+            <output id="ve_shedding_out"></output>
+          </label>
+          <input type="range" id="ve_shedding" min="0" max="0.95" step="0.01">
+        </div>
+      </details>
+
+      <details open>
+        <summary>Prevalence</summary>
+        <div class="field">
+          <label for="community_infectious_low">Community infectious — low (fraction)</label>
+          <input type="number" id="community_infectious_low" min="0" max="0.1" step="0.0001">
+        </div>
+        <div class="field">
+          <label for="community_infectious_high">Community infectious — high (fraction)</label>
+          <input type="number" id="community_infectious_high" min="0" max="0.1" step="0.0001">
+        </div>
+        <div class="field slider">
+          <label for="event_attendable_fraction">Attendable fraction (no-symptoms policy)
+            <output id="event_attendable_fraction_out"></output>
+          </label>
+          <input type="range" id="event_attendable_fraction" min="0" max="1" step="0.01">
+        </div>
+      </details>
+
+      <details>
+        <summary>IC attendee assumptions</summary>
+        <div class="field slider">
+          <label for="self_selection">IC self-selection factor
+            <output id="self_selection_out"></output>
+          </label>
+          <input type="range" id="self_selection" min="0" max="1.5" step="0.01">
+        </div>
+
+        <div class="field">
+          <label for="ic_preset">Preset</label>
+          <select id="ic_preset">
+            <option value="regimented">Regimented (specialist-guided)</option>
+            <option value="general">General IC distribution</option>
+            <option value="custom">Custom</option>
+          </select>
+        </div>
+
+        <fieldset class="mix">
+          <legend>IC mask mix</legend>
+          <div class="field"><label for="ic_mask_n95_fit_tested">N95 fit-tested</label>
+            <input type="number" id="ic_mask_n95_fit_tested" min="0" max="1" step="0.01"></div>
+          <div class="field"><label for="ic_mask_n95_casual">N95 casual</label>
+            <input type="number" id="ic_mask_n95_casual" min="0" max="1" step="0.01"></div>
+          <div class="field"><label for="ic_mask_kn95_typical">KN95 typical</label>
+            <input type="number" id="ic_mask_kn95_typical" min="0" max="1" step="0.01"></div>
+          <div class="field"><label for="ic_mask_surgical">Surgical</label>
+            <input type="number" id="ic_mask_surgical" min="0" max="1" step="0.01"></div>
+          <div class="field"><label for="ic_mask_none">None</label>
+            <input type="number" id="ic_mask_none" min="0" max="1" step="0.01"></div>
+          <p class="hint mix-sum" id="ic_mask_mix_sum"></p>
+        </fieldset>
+
+        <fieldset class="mix">
+          <legend>IC vaccination / PrEP mix</legend>
+          <div class="field"><label for="ic_vax_prep">Current vax + Pemgarda (PrEP)</label>
+            <input type="number" id="ic_vax_prep" min="0" max="1" step="0.01"></div>
+          <div class="field"><label for="ic_vax_only">Current vax only</label>
+            <input type="number" id="ic_vax_only" min="0" max="1" step="0.01"></div>
+          <div class="field"><label for="ic_vax_old">Old vax only</label>
+            <input type="number" id="ic_vax_old" min="0" max="1" step="0.01"></div>
+          <div class="field"><label for="ic_vax_none">No vaccine</label>
+            <input type="number" id="ic_vax_none" min="0" max="1" step="0.01"></div>
+          <p class="hint mix-sum" id="ic_vax_mix_sum"></p>
+        </fieldset>
+      </details>
+
+      <details>
+        <summary>Non-IC attendee assumptions</summary>
+        <fieldset class="mix">
+          <legend>Non-IC mask mix</legend>
+          <div class="field"><label for="nic_mask_n95_fit_tested">N95 fit-tested</label>
+            <input type="number" id="nic_mask_n95_fit_tested" min="0" max="1" step="0.01"></div>
+          <div class="field"><label for="nic_mask_n95_casual">N95 casual</label>
+            <input type="number" id="nic_mask_n95_casual" min="0" max="1" step="0.01"></div>
+          <div class="field"><label for="nic_mask_kn95_typical">KN95 typical</label>
+            <input type="number" id="nic_mask_kn95_typical" min="0" max="1" step="0.01"></div>
+          <div class="field"><label for="nic_mask_surgical">Surgical</label>
+            <input type="number" id="nic_mask_surgical" min="0" max="1" step="0.01"></div>
+          <div class="field"><label for="nic_mask_none">None</label>
+            <input type="number" id="nic_mask_none" min="0" max="1" step="0.01"></div>
+          <p class="hint mix-sum" id="nic_mask_mix_sum"></p>
+        </fieldset>
+
+        <fieldset class="mix">
+          <legend>Non-IC vaccination mix</legend>
+          <div class="field"><label for="nic_vax_current">Current-season vax</label>
+            <input type="number" id="nic_vax_current" min="0" max="1" step="0.01"></div>
+          <div class="field"><label for="nic_vax_old">Older vax only</label>
+            <input type="number" id="nic_vax_old" min="0" max="1" step="0.01"></div>
+          <div class="field"><label for="nic_vax_none">No vaccine</label>
+            <input type="number" id="nic_vax_none" min="0" max="1" step="0.01"></div>
+          <p class="hint mix-sum" id="nic_vax_mix_sum"></p>
+        </fieldset>
+      </details>
+
+      <div class="buttons">
+        <button type="button" id="reset_defaults">Reset to defaults</button>
+        <button type="button" id="copy_link">Copy shareable link</button>
+      </div>
+
+    </section>
+
+    <section id="outputs" aria-label="Results">
+
+      <div class="output-group">
+        <h2>Emission & exposure</h2>
+        <table class="kv">
+          <tr><td>Activity total (min)</td><td id="out_activity_total"></td></tr>
+          <tr><td>Quanta/hr (median)</td><td id="out_q_median"></td></tr>
+          <tr><td>Quanta/hr (lognormal mean) <em>← used for expected risk</em></td><td id="out_q_mean"></td></tr>
+          <tr><td>Quanta/hr (p90)</td><td id="out_q_p90"></td></tr>
+          <tr><td>Humidity multiplier</td><td id="out_humidity"></td></tr>
+          <tr><td>Transient dose factor</td><td id="out_transient"></td></tr>
+          <tr><td>Effective attendee prevalence</td><td id="out_eff_prevalence"></td></tr>
+          <tr><td>Expected infectious attendees</td><td id="out_exp_inf_attendees"></td></tr>
+          <tr><td>Peer vax prevalence multiplier</td><td id="out_peer_vax_prev"></td></tr>
+          <tr><td>Peer vax emission multiplier</td><td id="out_peer_vax_emit"></td></tr>
+          <tr><td>Peer masking emission factor</td><td id="out_peer_mask_emit"></td></tr>
+        </table>
+      </div>
+
+      <div class="output-group">
+        <h2>P(infection) per event by your own mask</h2>
+        <table class="grid" id="tbl_p_inf_by_mask">
+          <thead><tr><th>Mask</th><th>Filtration</th><th>P(infection)</th></tr></thead>
+          <tbody></tbody>
+        </table>
+        <p class="hint">Single susceptible person. Includes hybrid-immunity reduction for non-IC (50%).
+          IC row uses IC hybrid-immunity (20%).</p>
+      </div>
+
+      <div class="output-group">
+        <h2>IC attendees at this event</h2>
+        <table class="kv">
+          <tr><td>Expected IC attendees</td><td id="out_ic_total"></td></tr>
+          <tr><td>· severe</td><td id="out_ic_severe"></td></tr>
+          <tr><td>· moderate</td><td id="out_ic_moderate"></td></tr>
+          <tr><td>· mild</td><td id="out_ic_mild"></td></tr>
+          <tr><td>Expected non-IC attendees</td><td id="out_non_ic_total"></td></tr>
+        </table>
+      </div>
+
+      <div class="output-group">
+        <h2>Per-event aggregate risk (this event)</h2>
+        <table class="grid" id="tbl_aggregate">
+          <thead>
+            <tr><th>Outcome</th><th>Expected count</th><th>P(≥ 1 event)</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <div class="output-group">
+        <h2>Annual totals at monthly cadence</h2>
+        <div class="field inline">
+          <label for="events_per_year">Events per year</label>
+          <input type="number" id="events_per_year" min="1" max="365" step="1" value="12">
+        </div>
+        <table class="grid" id="tbl_annual">
+          <thead><tr><th>Outcome</th><th>Expected per year</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+    </section>
+  </main>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
