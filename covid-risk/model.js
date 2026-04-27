@@ -11,27 +11,21 @@ export const QUANTA_RATES = {
   eating:       [2.0,   16.5],   // ~5x breathing
 };
 
-export const SOURCE_CONTROL = {
-  none:     0.00,
-  cloth:    0.50,
-  surgical: 0.70,
-  kn95:     0.75,
-  n95:      0.95,
-};
-
 export const MASK_PROTECTION = {
   none:           0.00,
-  surgical:       0.38,
-  kn95_typical:   0.67,
-  n95_casual:     0.67,
+  cloth:          0.30,
+  surgical:       0.40,
+  kn95_typical:   0.50,
+  n95_casual:     0.86,
   n95_fit_tested: 0.95,
 };
 
 export const MASK_TO_SOURCE_CONTROL = {
   n95_fit_tested: 0.95,
   n95_casual:     0.95,
-  kn95_typical:   0.75,
-  surgical:       0.70,
+  kn95_typical:   0.71,
+  surgical:       0.74,
+  cloth:          0.50,
   none:           0.00,
 };
 
@@ -93,33 +87,35 @@ export const DEFAULT_AGE_DISTRIBUTION = {
 };
 
 export const DEFAULT_IC_MASK_MIX = {
-  n95_fit_tested: 0.90,
-  n95_casual:     0.10,
-  kn95_typical:   0.00,
-  surgical:       0.00,
-  none:           0.00,
+  n95_fit_tested: 0.05,
+  n95_casual:     0.05,
+  kn95_typical:   0.10,
+  surgical:       0.10,
+  cloth:          0.10,
+  none:           0.60,
 };
 
 export const DEFAULT_IC_VAX_MIX = {
-  "vax+prep": 0.40,
-  "vax_only": 0.50,
-  "old_vax":  0.10,
+  "vax+prep": 0.02,
+  "vax_only": 0.30,
+  "old_vax":  0.68,
   "none":     0.00,
 };
 
 export const GENERAL_IC_MASK_MIX = {
-  n95_fit_tested: 0.20,
-  n95_casual:     0.25,
-  kn95_typical:   0.15,
-  surgical:       0.15,
-  none:           0.25,
+  n95_fit_tested: 0.02,
+  n95_casual:     0.03,
+  kn95_typical:   0.05,
+  surgical:       0.05,
+  cloth:          0.05,
+  none:           0.80,
 };
 
 export const GENERAL_IC_VAX_MIX = {
-  "vax+prep": 0.15,
-  "vax_only": 0.45,
-  "old_vax":  0.25,
-  "none":     0.15,
+  "vax+prep": 0.00,
+  "vax_only": 0.15,
+  "old_vax":  0.55,
+  "none":     0.30,
 };
 
 export const P_HOSP_GIVEN_INFECTION_NON_IC = {
@@ -136,8 +132,8 @@ export const P_LONG_COVID_PER_INFECTION_NON_IC = {
 
 export const DEFAULT_NON_IC_VAX_MIX = {
   vax_current: 0.25,
-  vax_old:     0.70,
-  none:        0.05,
+  vax_old:     0.75,
+  none:        0.00,
 };
 
 export const DEFAULT_NON_IC_MASK_MIX = {
@@ -145,6 +141,7 @@ export const DEFAULT_NON_IC_MASK_MIX = {
   n95_casual:     0.00,
   kn95_typical:   0.00,
   surgical:       0.00,
+  cloth:          0.00,
   none:           1.00,
 };
 

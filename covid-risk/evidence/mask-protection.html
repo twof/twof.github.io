@@ -1,0 +1,291 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mask protection and source control - COVID risk model evidence</title>
+  <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+  <header>
+    <h1><a href="../index.html">COVID event risk calculator</a></h1>
+    <p class="subtitle">Evidence and methodology for model inputs</p>
+  </header>
+
+  <main class="evidence">
+    <article>
+      <h2>Mask protection and source control</h2>
+
+      <h3>How masks affect the model</h3>
+      <p>Masks reduce transmission in two independent ways:</p>
+      <ol>
+        <li><strong>Source control (exhalation)</strong> &mdash; reduces the
+          amount of infectious aerosol emitted by an infected person. This
+          is applied as a blended factor across all attendees based on the
+          IC and non-IC mask mix distributions.</li>
+        <li><strong>Inhalation protection</strong> &mdash; reduces the dose
+          received by the person wearing the mask. This is applied
+          per-mask-type when computing individual infection
+          probabilities.</li>
+      </ol>
+      <p>The two sides have different efficiencies because of the physics:
+        exhaled air is pushed outward through the filter material, while
+        inhaled air can bypass the filter through face seal gaps.
+        Source control is generally higher than inhalation protection for
+        the same mask.</p>
+
+      <h3>Model values</h3>
+
+      <h4>Inhalation protection (MASK_PROTECTION)</h4>
+      <table class="grid">
+        <thead><tr><th>Mask type</th><th>Protection</th></tr></thead>
+        <tbody>
+          <tr><td>None</td><td>0%</td></tr>
+          <tr><td>Cloth</td><td>30%</td></tr>
+          <tr><td>Surgical</td><td>40%</td></tr>
+          <tr><td>KN95 (typical wear)</td><td>50%</td></tr>
+          <tr><td>N95 (casual, no fit test)</td><td>86%</td></tr>
+          <tr><td>N95 (fit-tested)</td><td>95%</td></tr>
+        </tbody>
+      </table>
+
+      <h4>Source control (MASK_TO_SOURCE_CONTROL)</h4>
+      <table class="grid">
+        <thead><tr><th>Mask type</th><th>Emission reduction</th></tr></thead>
+        <tbody>
+          <tr><td>None</td><td>0%</td></tr>
+          <tr><td>Cloth</td><td>50%</td></tr>
+          <tr><td>Surgical</td><td>74%</td></tr>
+          <tr><td>KN95 (typical wear)</td><td>71%</td></tr>
+          <tr><td>N95 (casual, no fit test)</td><td>95%</td></tr>
+          <tr><td>N95 (fit-tested)</td><td>95%</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Evidence: inhalation protection</h3>
+      <p>All inhalation values are based on <strong>untrained, casual
+        wear</strong> &mdash; how masks perform when someone just puts
+        them on without instruction. Face seal leakage, not filter
+        material, dominates real-world inhalation performance.</p>
+
+      <h4>Zhu et al. 2022 &mdash; N95 uninstructed baseline</h4>
+      <p><a href="https://doi.org/10.1017/ice.2022.147">Zhu et al.
+        (2022)</a> measured fitted filtration efficiency (FFE) on 21
+        participants donning N95 respirators (3M Aura 9205+) with
+        escalating instruction levels:</p>
+      <table class="grid">
+        <thead><tr><th>Instruction level</th><th>FFE</th></tr></thead>
+        <tbody>
+          <tr><td>Uninstructed baseline</td><td><strong>86.1%</strong></td></tr>
+          <tr><td>Manufacturer written instructions</td><td>93.3%</td></tr>
+          <tr><td>Video demonstration</td><td>97.5%</td></tr>
+          <tr><td>Staff intervention</td><td>98.3%</td></tr>
+        </tbody>
+      </table>
+      <p>Prior N95 experience made no difference at baseline (p=0.95).
+        The uninstructed 86% is the basis for our N95 casual value.</p>
+
+      <h4>Clapp et al. 2021 &mdash; fit test pass rates, untrained</h4>
+      <p><a href="https://doi.org/10.1371/journal.pone.0245688">Clapp
+        et al. (2021)</a> tested 7 participants (3 with some healthcare
+        experience) on quantitative fit testing:</p>
+      <table class="grid">
+        <thead><tr><th>Mask</th><th>Mean fit factor</th><th>Implied protection</th><th>Pass rate</th></tr></thead>
+        <tbody>
+          <tr><td>N95 (various models)</td><td>13&ndash;200+</td><td>92&ndash;99%+</td><td>43%</td></tr>
+          <tr><td>KN95</td><td>2.2</td><td><strong>55%</strong></td><td>0%</td></tr>
+          <tr><td>Surgical</td><td>3.2</td><td>69%</td><td>0%</td></tr>
+          <tr><td>Cloth</td><td>2.1</td><td>52%</td><td>0%</td></tr>
+        </tbody>
+      </table>
+
+      <h4>Duncan et al. 2020 &mdash; total inward leakage, DRDC Canada</h4>
+      <p><a href="https://doi.org/10.1101/2020.11.24.20237446">Duncan
+        et al. (2020)</a> measured practical protection levels (PPL) via
+        total inward leakage on 5&ndash;8 subjects per mask type. N95
+        subjects were trained and fit-tested; all other mask wearers were
+        untrained:</p>
+      <table class="grid">
+        <thead><tr><th>Mask</th><th>PPL</th><th>Protection</th><th>Training</th></tr></thead>
+        <tbody>
+          <tr><td>N95 (3M 9210)</td><td>166</td><td>99.4%</td><td>Fit-tested</td></tr>
+          <tr><td>Procedure mask, tie-strap</td><td>3.6</td><td>72%</td><td>Untrained</td></tr>
+          <tr><td>Procedure mask, ear-loop</td><td>1.7</td><td><strong>41%</strong></td><td>Untrained</td></tr>
+          <tr><td>Cloth (7 types)</td><td>1.2&ndash;1.8</td><td><strong>17&ndash;44%</strong></td><td>Untrained</td></tr>
+        </tbody>
+      </table>
+      <p>Mean PPL for all 9 non-N95 face coverings was 1.95 (SD 0.89),
+        roughly 49% protection. The study also cites that qualitatively
+        fitting a KN95 to a headform gave only ~40% efficiency, rising to
+        96.7% when sealed with adhesive &mdash; showing fit dominates
+        KN95 performance.</p>
+
+      <h4>Sickbert-Bennett et al. 2021 &mdash; trained volunteers</h4>
+      <p><a href="https://doi.org/10.1371/journal.pone.0258191">Sickbert-Bennett
+        et al. (2021)</a> measured total inward leakage protection factors
+        (TILPF) on 11 <strong>trained</strong> volunteers:</p>
+      <table class="grid">
+        <thead><tr><th>Mask</th><th>TILPF</th><th>Protection</th></tr></thead>
+        <tbody>
+          <tr><td>N95 FFR</td><td>165.7</td><td>99.4%</td></tr>
+          <tr><td>KN95</td><td>6.2</td><td>83.9%</td></tr>
+          <tr><td>Procedure/surgical</td><td>2.26</td><td>55.8%</td></tr>
+          <tr><td>Fabric (multi-layer)</td><td>1.78</td><td>43.8%</td></tr>
+        </tbody>
+      </table>
+      <p>These trained-volunteer values are significantly higher than
+        untrained performance for all mask types except N95.</p>
+
+      <h4>How inhalation values were chosen</h4>
+      <ul>
+        <li><strong>Cloth (30%)</strong>: Duncan untrained cloth PPL
+          1.2&ndash;1.8 (17&ndash;44%), geometric mean ~30%. Consistent
+          with Clapp fit factor 2.1 (52%) being on the high side for
+          a very small sample.</li>
+        <li><strong>Surgical (40%)</strong>: Duncan untrained ear-loop
+          PPL 1.7 (41%). Consistent with the middle of the wide range
+          across studies (4&ndash;72%).</li>
+        <li><strong>KN95 typical (50%)</strong>: Between Duncan&rsquo;s
+          cited 40% (headform, no seal) and Clapp&rsquo;s 55% (fit factor
+          2.2, untrained). KN95s had 0% fit test pass rate.</li>
+        <li><strong>N95 casual (86%)</strong>: Directly from Zhu et al.
+          uninstructed baseline FFE on 21 participants. N95 form factor
+          provides substantially better seal than KN95 even without
+          training.</li>
+        <li><strong>N95 fit-tested (95%)</strong>: Conservative relative
+          to measured 99%+ across multiple studies (Duncan, Sickbert-Bennett,
+          Zhu post-instruction).</li>
+      </ul>
+
+      <h3>Evidence: source control</h3>
+
+      <h4>Adenaiye et al. 2024 (eBioMedicine) &mdash; real COVID patients</h4>
+      <p><a href="https://doi.org/10.1016/j.ebiom.2024.105157">This
+        study</a> measured exhaled viral load from 44 COVID-infected
+        volunteers (60 paired masked/unmasked samples) using a
+        Gesundheit-II bioaerosol collector. Participants received
+        <strong>no fit training</strong>:</p>
+      <table class="grid">
+        <thead><tr><th>Mask</th><th>Reduction (95% CI)</th><th>Model tested</th></tr></thead>
+        <tbody>
+          <tr><td>N95 (duckbill)</td><td>98% (97&ndash;99)</td><td>ACI 3120</td></tr>
+          <tr><td>Cloth (various)</td><td>87% (77&ndash;92)</td><td>Volunteer-provided</td></tr>
+          <tr><td>Surgical</td><td>74% (65&ndash;81)</td><td>Kimtech M3</td></tr>
+          <tr><td>KN95</td><td>71% (59&ndash;79)</td><td>Powecom</td></tr>
+        </tbody>
+      </table>
+      <p>Notable: KN95 performed <strong>worse</strong> than surgical as
+        source control. The authors noted KN95s &ldquo;did not seal
+        consistently along the entire perimeter.&rdquo; Only one model per
+        category was tested.</p>
+
+      <h4>Brooks et al. 2021 (CDC) &mdash; manikin simulator, 19 models</h4>
+      <p><a href="https://doi.org/10.1080/02786826.2021.1933377">This CDC
+        study</a> tested 19 masks on a manikin headform with fit testing
+        on 11 human participants:</p>
+      <table class="grid">
+        <thead><tr><th>Mask</th><th>Cough</th><th>Exhalation</th></tr></thead>
+        <tbody>
+          <tr><td>N95 (3M 1860)</td><td>99.0%</td><td>99.1%</td></tr>
+          <tr><td>N95 (BYD)</td><td>95.2%</td><td>99.1%</td></tr>
+          <tr><td>Surgical (3M 1818)</td><td>91.4%</td><td>92.7%</td></tr>
+          <tr><td>Procedure (Excellent Artisan)</td><td>42.0%</td><td>79.7%</td></tr>
+          <tr><td>Cloth (Badger 4-ply)</td><td>71.1%</td><td>61.8%</td></tr>
+          <tr><td>Cloth (Hanes 3-ply)</td><td>51.7%</td><td>44.3%</td></tr>
+        </tbody>
+      </table>
+
+      <h4>How source control values were chosen</h4>
+      <ul>
+        <li><strong>Cloth (50%)</strong>: CDC manikin study ranged from
+          44&ndash;71% across cloth types. 50% is a conservative mid-range
+          estimate.</li>
+        <li><strong>Surgical (74%)</strong>: Directly from Adenaiye et al.
+          2024 (real COVID patients, untrained).</li>
+        <li><strong>KN95 typical (71%)</strong>: Directly from Adenaiye et
+          al. 2024. Slightly below surgical due to inconsistent
+          sealing.</li>
+        <li><strong>N95 casual and fit-tested (95%)</strong>: Conservative
+          estimate from 95&ndash;99% range across studies. N95 source
+          control appears robust regardless of fit testing because exhaled
+          air is forced through the filter material.</li>
+      </ul>
+
+      <h3>Default mask mix values</h3>
+      <p>The IC and non-IC mask mix sliders control what fraction of
+        attendees wear each mask type. These defaults are based on
+        survey data about actual masking behavior, not aspirational
+        targets.</p>
+
+      <h4>IC mask mix (regimented default): 40% masked, 60% none</h4>
+      <p>The
+        <a href="https://www.kff.org/public-opinion/kff-covid-19-vaccine-monitor-immunocompromised-adults/">KFF
+        COVID-19 Vaccine Monitor</a> found that <strong>40%</strong> of
+        immunocompromised adults still wear masks, while 17% have made no
+        behavioral adjustments at all. The 40% who mask are distributed
+        across types (5% N95 fit-tested, 5% N95 casual, 10% KN95, 10%
+        surgical, 10% cloth). The type distribution is estimated &mdash;
+        no survey breaks down IC masking by mask type.</p>
+
+      <h4>Non-IC mask mix default: ~100% none</h4>
+      <p><a href="https://www.pewresearch.org/politics/2025/02/12/americans-views-on-covid-19-risk-and-the-countrys-response-to-health-emergencies/">Pew
+        Research Center (2024)</a> found that <strong>80%</strong> of
+        Americans hardly ever or never wear masks, and only
+        <strong>4%</strong> mask frequently. The non-IC default of 100%
+        none reflects this reality.</p>
+
+      <h4>General IC preset: 20% masked, 80% none</h4>
+      <p>The general preset represents IC individuals who are less
+        health-engaged. If the regimented IC population masks at 40%,
+        the less-engaged subset likely masks at roughly half that rate.</p>
+
+      <h3>Limitations</h3>
+      <ul>
+        <li><strong>Source control data is thin.</strong> The Adenaiye
+          study tested only one model per mask category. The CDC manikin
+          study found surgical mask source control ranging from 42% to 93%
+          across models.</li>
+        <li><strong>Cloth mask performance varies enormously.</strong>
+          Material, layers, and construction matter more for cloth masks
+          than for standardized products. The model uses a single value
+          that cannot capture this range.</li>
+        <li><strong>N95 source control gap is unmeasured.</strong> No
+          study directly compared fit-tested vs unfitted N95 source
+          control. The available data (95&ndash;99% in both conditions)
+          suggests the gap is small, but this has not been rigorously
+          established.</li>
+        <li><strong>KN95 quality is inconsistent.</strong> Up to 60% of
+          KN95s on the market do not meet certification criteria. The
+          studies tested specific brands that may not represent the full
+          range of products.</li>
+        <li><strong>Behavioral factors are not captured.</strong> Mask
+          touching, nose exposure, removal for eating/drinking, and
+          improper donning all reduce real-world effectiveness below even
+          the &ldquo;untrained&rdquo; lab measurements.</li>
+      </ul>
+
+      <h3>Sources</h3>
+      <ul>
+        <li><a href="https://doi.org/10.1017/ice.2022.147">Zhu et al.
+          (2022)</a> &mdash; N95 FFE with escalating instruction, 21
+          participants (Infect Control Hosp Epidemiol)</li>
+        <li><a href="https://doi.org/10.1371/journal.pone.0245688">Clapp
+          et al. (2021)</a> &mdash; Fit test pass rates for untrained
+          users, 7 participants (PLOS ONE)</li>
+        <li><a href="https://doi.org/10.1101/2020.11.24.20237446">Duncan
+          et al. (2020)</a> &mdash; TIL and material filtration, 15 masks
+          + 3 N95 models, DRDC Canada (medRxiv preprint)</li>
+        <li><a href="https://doi.org/10.1371/journal.pone.0258191">Sickbert-Bennett
+          et al. (2021)</a> &mdash; TIL with trained volunteers, 5 mask
+          categories (PLOS ONE)</li>
+        <li><a href="https://doi.org/10.1016/j.ebiom.2024.105157">Adenaiye
+          et al. (2024)</a> &mdash; Source control with real COVID patients,
+          untrained (eBioMedicine)</li>
+        <li><a href="https://doi.org/10.1080/02786826.2021.1933377">Brooks
+          et al. (2021)</a> &mdash; CDC manikin source control, 19 models
+          (Aerosol Sci Technol)</li>
+      </ul>
+    </article>
+  </main>
+</body>
+</html>

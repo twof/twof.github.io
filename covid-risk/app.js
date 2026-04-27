@@ -42,6 +42,7 @@ const icMaskFields = {
   n95_casual:     "ic_mask_n95_casual",
   kn95_typical:   "ic_mask_kn95_typical",
   surgical:       "ic_mask_surgical",
+  cloth:          "ic_mask_cloth",
   none:           "ic_mask_none",
 };
 
@@ -57,6 +58,7 @@ const nicMaskFields = {
   n95_casual:     "nic_mask_n95_casual",
   kn95_typical:   "nic_mask_kn95_typical",
   surgical:       "nic_mask_surgical",
+  cloth:          "nic_mask_cloth",
   none:           "nic_mask_none",
 };
 
@@ -295,7 +297,7 @@ function render() {
   // P(infection) by mask
   const tbody = $("tbl_p_inf_by_mask").querySelector("tbody");
   tbody.innerHTML = "";
-  const masks = ["none", "surgical", "kn95_typical", "n95_casual", "n95_fit_tested"];
+  const masks = ["none", "cloth", "surgical", "kn95_typical", "n95_casual", "n95_fit_tested"];
   for (const m of masks) {
     const nic = perEventInfectionProb(ev, prev, MASK_PROTECTION[m],
       { hybrid_immunity: HYBRID_IMMUNITY_NON_IC,
