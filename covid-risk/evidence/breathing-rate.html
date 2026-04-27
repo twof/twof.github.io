@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Breathing rate - COVID risk model evidence</title>
+  <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+  <header>
+    <h1><a href="../index.html">COVID event risk calculator</a></h1>
+    <p class="subtitle">Evidence and methodology for model inputs</p>
+  </header>
+
+  <main class="evidence">
+    <article>
+      <h2>Breathing rate (m&sup3;/hr)</h2>
+      <p><strong>Default value:</strong> 0.5 m&sup3;/hr</p>
+
+      <h3>How it affects the model</h3>
+      <p>Breathing rate is a simple linear multiplier on inhaled dose:
+        <code>dose = concentration &times; breathing_rate &times; duration</code>.
+        Doubling the breathing rate doubles the inhaled dose and approximately
+        doubles the infection probability (at low probabilities).</p>
+      <p>This parameter represents the <strong>susceptible person&rsquo;s
+        inhalation rate</strong> &mdash; how much air they breathe in per hour.
+        It is separate from the emission side (quanta emission rates for
+        breathing, speaking, singing), which controls how much virus the
+        infectious person puts into the air.</p>
+
+      <h3>Evidence</h3>
+
+      <h4>Reference values by activity level</h4>
+      <p>Adult inhalation rates are well-established from respiratory physiology,
+        the <a href="https://www.epa.gov/expobox/about-exposure-factors-handbook">EPA
+        Exposure Factors Handbook (2011)</a>, and the
+        <a href="https://www.icrp.org/publication.asp?id=ICRP+Publication+119">ICRP
+        Publication 66/119</a> reference values:</p>
+      <table class="grid">
+        <thead><tr><th>Activity</th><th>Rate (m&sup3;/hr)</th><th>Source</th></tr></thead>
+        <tbody>
+          <tr><td>Resting tidal ventilation</td><td>0.36</td><td>Physiology (12 breaths/min &times; 500&nbsp;mL)</td></tr>
+          <tr><td>Sedentary</td><td>0.3&ndash;0.5</td><td>EPA Exposure Factors Handbook</td></tr>
+          <tr><td>Resting &amp; standing average</td><td>0.52</td><td>Adams 1993, used by Aganovic et al.</td></tr>
+          <tr><td>ICRP sedentary reference</td><td>0.54</td><td>ICRP (9&nbsp;L/min)</td></tr>
+          <tr><td>Light exercise</td><td>0.7&ndash;1.2</td><td>EPA, ICRP</td></tr>
+          <tr><td>Moderate exercise</td><td>1.0&ndash;1.5</td><td>EPA</td></tr>
+          <tr><td>Heavy exercise</td><td>2.0&ndash;3.0</td><td>EPA, ICRP</td></tr>
+        </tbody>
+      </table>
+
+      <h4>Values used in COVID airborne transmission models</h4>
+      <p>Recent COVID-19 airborne transmission studies use inhalation rates
+        consistent with our default:</p>
+      <ul>
+        <li><a href="https://doi.org/10.1016/j.buildenv.2022.109924">Aganovic et al. (2023)</a>:
+          <strong>0.52&nbsp;m&sup3;/h</strong> &mdash; &ldquo;the inhalation rate
+          for resting and standing averaged&rdquo;</li>
+        <li><a href="https://doi.org/10.1038/s41598-023-47829-8">Alsved et al. (2023)</a>:
+          <strong>0.54&nbsp;m&sup3;/h</strong> (9&nbsp;L/min) for their indoor
+          air transmission model</li>
+        <li><a href="https://doi.org/10.1111/risa.14178">Aganovic &amp; Kadric (2024)</a>:
+          <strong>0.52&nbsp;m&sup3;/h</strong> for their dose-response model
+          comparison using human coronavirus challenge data</li>
+      </ul>
+      <p>One outlier:
+        <a href="https://doi.org/10.1021/acs.est.1c06531">Peng et al. (2022)</a>
+        fitted B<sub>0</sub>&nbsp;=&nbsp;0.288&nbsp;m&sup3;/h to real outbreak
+        data &mdash; roughly half the physiological resting rate. This illustrates
+        that the &ldquo;breathing rate&rdquo; in a Wells-Riley model is an
+        <strong>effective parameter</strong> that is coupled to the quanta
+        emission rate. Different models can use different combinations of breathing
+        rate and quanta rate that produce similar infection probabilities. What
+        matters is the product of all the parameters, not any single value in
+        isolation.</p>
+
+      <h4>Is the default of 0.5 reasonable?</h4>
+      <p>For a <strong>seated, mostly sedentary event</strong> (conference,
+        concert, theater, religious service), 0.5&nbsp;m&sup3;/h is appropriate.
+        It sits at the upper end of the EPA sedentary range and is consistent
+        with the values used in the three COVID transmission models cited above.</p>
+      <p>For <strong>physically active events</strong> (fitness classes, dancing,
+        sports), users should increase this value. A dance event might warrant
+        1.0&ndash;1.5&nbsp;m&sup3;/h; vigorous exercise could be 2.0+ m&sup3;/h.
+        Higher inhalation rates increase both the amount of virus inhaled by
+        susceptible attendees and (in reality, though not captured by this model)
+        the amount of virus exhaled by infectious attendees.</p>
+
+      <h3>Limitations</h3>
+      <ul>
+        <li><strong>Single value for all attendees.</strong> The model uses one
+          breathing rate for all susceptible attendees. In practice, breathing rate
+          varies with age, sex, body size, and individual activity. Males breathe
+          ~10&ndash;15% more than females at the same activity level; older adults
+          may breathe less. This variation is small relative to the activity-level
+          differences.</li>
+        <li><strong>Inhalation rate is constant regardless of attendee activity.</strong>
+          The model has activity-segmented <em>emission</em> rates (quanta/hr for
+          breathing, speaking, singing) but uses a single <em>inhalation</em> rate.
+          In reality, someone who is singing or speaking also breathes more deeply.
+          This is a minor effect for the susceptible person (who is mostly listening)
+          but could matter at events where everyone participates vocally.</li>
+        <li><strong>Not all inhaled air reaches the lower respiratory tract.</strong>
+          The Wells-Riley &ldquo;breathing rate&rdquo; is an effective parameter,
+          not purely the physiological minute ventilation. Regional deposition in
+          the nasal passages, pharynx, and upper airways means that only a fraction
+          of inhaled aerosol reaches the alveolar region where infection occurs.
+          This may partly explain why Peng et al.&rsquo;s fitted value
+          (0.288&nbsp;m&sup3;/h) was lower than the physiological rate.</li>
+      </ul>
+    </article>
+  </main>
+</body>
+</html>

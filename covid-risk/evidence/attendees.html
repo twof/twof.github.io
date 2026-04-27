@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Attendees - COVID risk model evidence</title>
+  <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+  <header>
+    <h1><a href="../index.html">COVID event risk calculator</a></h1>
+    <p class="subtitle">Evidence and methodology for model inputs</p>
+  </header>
+
+  <main class="evidence">
+    <article>
+      <h2>Attendees</h2>
+      <p><strong>Default value:</strong> 100</p>
+
+      <h3>How it affects the model</h3>
+      <p>Attendee count enters the model in two places:</p>
+      <ol>
+        <li><strong>Expected infectious sources.</strong> The Wells-Riley equation computes the
+          expected number of infectious people in the room as
+          <code>(attendees &minus; 1) &times; P(attendee is infectious)</code>.
+          More attendees means more likely sources of airborne virus, which increases
+          the inhaled dose for every susceptible person. The &minus;1 accounts for
+          the susceptible individual themselves.</li>
+        <li><strong>Expected immunocompromised (IC) attendees.</strong> The number of IC
+          attendees is <code>attendees &times; age-weighted IC prevalence &times;
+          self-selection factor</code>. More attendees means more IC individuals
+          at risk, which scales the aggregate expected infections, hospitalizations,
+          and long-COVID outcomes.</li>
+      </ol>
+      <p>At the low per-person probabilities this model operates at, both effects
+        scale approximately linearly: doubling the attendee count roughly doubles
+        the expected number of adverse outcomes.</p>
+
+      <h3>Evidence</h3>
+      <p>The relationship between group size and airborne infection risk is a
+        direct consequence of the Wells-Riley model, the standard framework for
+        indoor airborne transmission since
+        <a href="https://doi.org/10.1093/oxfordjournals.aje.a112560">Riley et al. (1978)</a>.
+        The probability that at least one infectious person is present rises with group size,
+        and the expected number of transmission events scales accordingly.</p>
+      <p>Empirical support for the group-size effect comes from documented COVID-19
+        outbreaks where larger gatherings produced more secondary infections:</p>
+      <ul>
+        <li><a href="https://doi.org/10.1093/cid/ciaa1394">Hamner et al. (2020)</a> documented
+          a choir rehearsal with 61 attendees where 53 were infected, demonstrating how
+          a single infectious source in a large indoor group can produce high attack rates.</li>
+        <li><a href="https://doi.org/10.12688/wellcomeopenres.15889.1">Leclerc et al. (2020)</a>
+          systematically reviewed SARS-CoV-2 transmission clusters and found that larger
+          indoor gatherings (fitness classes, religious services, meat-packing plants)
+          consistently produced larger clusters than smaller household contacts.</li>
+      </ul>
+
+      <h3>Limitations</h3>
+      <p>The model assumes a well-mixed room: every attendee breathes the same
+        average air. In practice, proximity to an infectious person matters
+        enormously for short-range transmission. A 200-person event in a large
+        hall may pose less risk than a 20-person event in a small room, which is
+        why room volume and ventilation are separate parameters.</p>
+    </article>
+  </main>
+</body>
+</html>

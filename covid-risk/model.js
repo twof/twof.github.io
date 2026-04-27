@@ -3,10 +3,12 @@
 
 export const QUANTA_RATES = {
   // activity: [median q/hr, 90th percentile q/hr]
-  breathing:    [0.37,   3.1],
-  speaking:     [5.0,   42.0],
-  singing_loud: [32.0, 270.0],
-  eating:       [3.0,   20.0],
+  // Ratios derived from Buonanno 2020, Aganovic 2023, Moseley 2024,
+  // Mikszewski 2022, Matvejeff 2025. See evidence/activity-mix.html.
+  breathing:    [0.4,    3.3],
+  speaking:     [8.0,   66.0],   // ~20x breathing
+  singing_loud: [64.0, 530.0],   // ~8x speaking, ~160x breathing
+  eating:       [2.0,   16.5],   // ~5x breathing
 };
 
 export const SOURCE_CONTROL = {
@@ -25,7 +27,14 @@ export const MASK_PROTECTION = {
   n95_fit_tested: 0.95,
 };
 
-export const QUANTA_CALIBRATION_FACTOR_2026 = 0.5;
+export const MASK_TO_SOURCE_CONTROL = {
+  n95_fit_tested: 0.95,
+  n95_casual:     0.95,
+  kn95_typical:   0.75,
+  surgical:       0.70,
+  none:           0.00,
+};
+
 export const HYBRID_IMMUNITY_NON_IC = 0.50;
 export const HYBRID_IMMUNITY_IC = 0.20;
 
@@ -141,19 +150,33 @@ export const DEFAULT_NON_IC_MASK_MIX = {
 
 export const DEFAULT_SELF_SELECTION = 0.70;
 
-export const DEFAULT_PEER_MASK_MIX = {
-  cloth:    0.25,
-  surgical: 0.25,
-  kn95:     0.25,
-  n95:      0.25,
-};
-
 export const DEFAULT_ACTIVITIES = [
-  { activity: "breathing",    minutes: 81.0 },
-  { activity: "speaking",     minutes: 25.0 },
-  { activity: "singing_loud", minutes: 4.0  },
-  { activity: "eating",       minutes: 10.0 },
+  { activity: "breathing",    minutes: 0.68 },
+  { activity: "speaking",     minutes: 0.21 },
+  { activity: "singing_loud", minutes: 0.03 },
+  { activity: "eating",       minutes: 0.08 },
 ];
+
+// VE against infection waning curve, piecewise linear interpolation.
+// Sources: Ioannou et al. 2025 (Nature Comms), CDC MMWR 2025, JAMA Int Med 2025.
+const VE_WANING_CURVE = [
+  [0, 0.48], [1, 0.45], [2, 0.33], [3, 0.26],
+  [4, 0.22], [5, 0.17], [6, 0.15], [8, 0.15], [12, 0.00],
+];
+
+export function veFromMonthsSinceVax(months) {
+  if (months <= 0) return VE_WANING_CURVE[0][1];
+  for (let i = 1; i < VE_WANING_CURVE.length; i++) {
+    const [m1, v1] = VE_WANING_CURVE[i];
+    if (months <= m1) {
+      const [m0, v0] = VE_WANING_CURVE[i - 1];
+      return v0 + (v1 - v0) * (months - m0) / (m1 - m0);
+    }
+  }
+  return 0;
+}
+
+export const DEFAULT_MONTHS_SINCE_VAX = 3;
 
 export const DEFAULT_EVENT = {
   attendees: 100,
@@ -162,29 +185,53 @@ export const DEFAULT_EVENT = {
   air_changes_per_hour: 3.0,
   breathing_rate_m3_per_hour: 0.5,
   activities: DEFAULT_ACTIVITIES.map(a => ({ ...a })),
-  peer_masking_fraction: 0.0,
-  peer_mask_mix: { ...DEFAULT_PEER_MASK_MIX },
-  peer_current_season_vax_fraction: 0.25,
-  ve_infection: 0.25,
-  ve_shedding: 0.30,
-  relative_humidity: 0.40,
+  ve_infection: veFromMonthsSinceVax(3),
 };
+
+// --- Asymptomatic / presymptomatic parameters --------------------------
+// These determine what fraction of currently-infectious people would
+// attend an event (i.e., don't know they're sick or have no symptoms).
+
+// Fraction of new infections that are fully asymptomatic throughout.
+// Choi et al. 2025 (Sci Rep): Omicron vaccinated = 49.7%, unvaccinated =
+// 44.7%. With near-universal hybrid immunity in 2026, 50% is conservative.
+export const ASYMPTOMATIC_INCIDENCE_FRACTION = 0.50;
+
+// Infectious duration (days) for asymptomatic cases (vaccinated, Omicron).
+// Choi et al. 2025, Table 2: recovery period = 3 days (vaccinated Omicron).
+export const ASYMPTOMATIC_INFECTIOUS_DAYS = 3;
+
+// Total infectious duration (days) for symptomatic cases.
+// Singanayagam et al. 2022 (Lancet Resp Med): median 5 days (IQR 3–7).
+export const SYMPTOMATIC_INFECTIOUS_DAYS = 5;
+
+// Days of infectious shedding before symptom onset.
+// Omicron serial interval (~3 days) is shorter than incubation (~3.4 days),
+// implying ~1–2 days of presymptomatic infectious shedding.
+export const PRESYMPTOMATIC_DAYS = 1.5;
+
+// At any point in time, the "stock" of currently-infectious people is
+// weighted by how long each type remains infectious. Asymptomatic cases
+// clear faster (3 days) so they make up a smaller share of the pool than
+// their 50% incidence fraction suggests.
+export function attendableFraction(symptomaticAttendanceRate) {
+  const aStock = ASYMPTOMATIC_INCIDENCE_FRACTION * ASYMPTOMATIC_INFECTIOUS_DAYS;
+  const pStock = (1 - ASYMPTOMATIC_INCIDENCE_FRACTION) * PRESYMPTOMATIC_DAYS;
+  const sStock = (1 - ASYMPTOMATIC_INCIDENCE_FRACTION)
+    * (SYMPTOMATIC_INFECTIOUS_DAYS - PRESYMPTOMATIC_DAYS);
+  const total = aStock + pStock + sStock;
+  return (aStock + pStock + sStock * symptomaticAttendanceRate) / total;
+}
+
+export const DEFAULT_SYMPTOMATIC_ATTENDANCE = 0.0;
 
 export const DEFAULT_PREVALENCE = {
   community_infectious_low:  0.0004,
   community_infectious_high: 0.0012,
-  event_attendable_fraction: 0.47,
+  symptomatic_attendance: DEFAULT_SYMPTOMATIC_ATTENDANCE,
 };
 
 // --- Model primitives ---------------------------------------------------
-
-export function humidityMultiplier(rh) {
-  if (rh < 0.20) return 1.7;
-  if (rh < 0.40) return 1.7 - (rh - 0.20) / 0.20 * 0.7;
-  if (rh < 0.60) return 1.0 - (rh - 0.40) / 0.20 * 0.3;
-  if (rh < 0.80) return 0.7 - (rh - 0.60) / 0.20 * 0.2;
-  return 0.5;
-}
 
 export function transientDoseFactor(duration_hours, ach) {
   if (duration_hours <= 0 || ach <= 0) return 1.0;
@@ -208,22 +255,26 @@ export function quantaPerHour(activities, percentile) {
   return weighted / totalMin;
 }
 
-export function effectiveSourceEmissionFactor(peer_mask_mix, peer_masking_fraction) {
-  const avgSc = Object.keys(peer_mask_mix).reduce(
-    (s, m) => s + peer_mask_mix[m] * SOURCE_CONTROL[m], 0);
-  const f = peer_masking_fraction;
-  return (1 - f) * 1.0 + f * (1 - avgSc);
+export function blendedSourceEmissionFactor(ic_mask_mix, non_ic_mask_mix, ic_count, non_ic_count) {
+  function avgEmission(mask_mix) {
+    return Object.entries(mask_mix).reduce(
+      (s, [type, weight]) => s + weight * (1 - MASK_TO_SOURCE_CONTROL[type]), 0);
+  }
+  const total = ic_count + non_ic_count;
+  if (total <= 0) return 1.0;
+  return (ic_count * avgEmission(ic_mask_mix) + non_ic_count * avgEmission(non_ic_mask_mix)) / total;
+}
+
+export function blendedCurrentVaxFraction(ic_vax_mix, non_ic_vax_mix, ic_count, non_ic_count) {
+  const ic_current = (ic_vax_mix["vax+prep"] || 0) + (ic_vax_mix["vax_only"] || 0);
+  const nic_current = non_ic_vax_mix["vax_current"] || 0;
+  const total = ic_count + non_ic_count;
+  if (total <= 0) return 0;
+  return (ic_count * ic_current + non_ic_count * nic_current) / total;
 }
 
 export function peerVaxPrevalenceFactor(p, ve_infection) {
   return p * (1 - ve_infection) + (1 - p) * 1.0;
-}
-
-export function peerVaxEmissionFactor(p, ve_infection, ve_shedding) {
-  const infAmongVax = p * (1 - ve_infection);
-  const infAmongUnvax = (1 - p) * 1.0;
-  const frac = infAmongVax / (infAmongVax + infAmongUnvax);
-  return frac * (1 - ve_shedding) + (1 - frac) * 1.0;
 }
 
 // --- Wells-Riley per-event infection probability ------------------------
@@ -231,25 +282,34 @@ export function peerVaxEmissionFactor(p, ve_infection, ve_shedding) {
 export function perEventInfectionProb(event, prev, mask_filtration, {
   percentile = "mean",
   hybrid_immunity = 0.0,
+  sourceEmissionFactor = 1.0,
+  currentVaxFraction = 0.0,
 } = {}) {
-  let q = quantaPerHour(event.activities, percentile);
-  q *= effectiveSourceEmissionFactor(event.peer_mask_mix, event.peer_masking_fraction);
-  q *= peerVaxEmissionFactor(
-    event.peer_current_season_vax_fraction,
-    event.ve_infection, event.ve_shedding);
-  q *= humidityMultiplier(event.relative_humidity);
-  q *= QUANTA_CALIBRATION_FACTOR_2026;
+  // During eating, all masks are off (both source control and receptor protection).
+  // Split dose calculation so masking only applies to non-eating time.
+  const totalMin = event.activities.reduce((s, a) => s + a.minutes, 0);
+  const eatingActs = event.activities.filter(a => a.activity === 'eating');
+  const nonEatingActs = event.activities.filter(a => a.activity !== 'eating');
+  const eatingFrac = totalMin > 0
+    ? eatingActs.reduce((s, a) => s + a.minutes, 0) / totalMin : 0;
 
-  const C = q / (event.air_changes_per_hour * event.room_volume_m3);
-  let nPerSource = C * event.breathing_rate_m3_per_hour * event.duration_hours;
-  nPerSource *= transientDoseFactor(event.duration_hours, event.air_changes_per_hour);
-  const effectiveDose = nPerSource * (1 - mask_filtration) * (1 - hybrid_immunity);
+  const qEat = eatingFrac > 0 ? quantaPerHour(eatingActs, percentile) : 0;
+  const qRest = eatingFrac < 1 ? quantaPerHour(nonEatingActs, percentile) : 0;
+
+  const base = event.duration_hours * event.breathing_rate_m3_per_hour
+    * transientDoseFactor(event.duration_hours, event.air_changes_per_hour)
+    / (event.air_changes_per_hour * event.room_volume_m3);
+
+  const effectiveDose = base * (1 - hybrid_immunity) * (
+    eatingFrac * qEat                                                   // no masks
+    + (1 - eatingFrac) * qRest * sourceEmissionFactor * (1 - mask_filtration) // masks on
+  );
 
   const probs = [];
   for (const pComm of [prev.community_infectious_low, prev.community_infectious_high]) {
     const pEventAttendee = pComm
-      * prev.event_attendable_fraction
-      * peerVaxPrevalenceFactor(event.peer_current_season_vax_fraction, event.ve_infection);
+      * attendableFraction(prev.symptomatic_attendance)
+      * peerVaxPrevalenceFactor(currentVaxFraction, event.ve_infection);
     const expectedInfectious = (event.attendees - 1) * pEventAttendee;
     probs.push(1 - Math.exp(-expectedInfectious * effectiveDose));
   }
@@ -281,6 +341,8 @@ export function expectedIcAttendees(attendees, age_distribution, self_selection)
 
 export function weightedIcInfectionRisk(event, prev, mask_mix, {
   hybrid_immunity = HYBRID_IMMUNITY_IC,
+  sourceEmissionFactor = 1.0,
+  currentVaxFraction = 0.0,
 } = {}) {
   assertSumsToOne(mask_mix, "mask_mix");
   let lo = 0, hi = 0;
@@ -288,7 +350,7 @@ export function weightedIcInfectionRisk(event, prev, mask_mix, {
     if (weight === 0) continue;
     const filt = MASK_PROTECTION[name];
     const [mLo, mHi] = perEventInfectionProb(event, prev, filt, {
-      percentile: "mean", hybrid_immunity,
+      percentile: "mean", hybrid_immunity, sourceEmissionFactor, currentVaxFraction,
     });
     lo += weight * mLo;
     hi += weight * mHi;
@@ -316,8 +378,14 @@ export function aggregateEventRisk(event, prev, {
 } = {}) {
   const { total: totalIc, bySeverity } = expectedIcAttendees(
     event.attendees, age_distribution, self_selection);
+  const totalNonIc = event.attendees - totalIc;
 
-  const [pInfLo, pInfHi] = weightedIcInfectionRisk(event, prev, ic_mask_mix);
+  const srcEmit = blendedSourceEmissionFactor(ic_mask_mix, non_ic_mask_mix, totalIc, totalNonIc);
+  const curVaxFrac = blendedCurrentVaxFraction(ic_vax_mix, non_ic_vax_mix, totalIc, totalNonIc);
+
+  const [pInfLo, pInfHi] = weightedIcInfectionRisk(event, prev, ic_mask_mix, {
+    sourceEmissionFactor: srcEmit, currentVaxFraction: curVaxFrac,
+  });
 
   const expInf = [totalIc * pInfLo, totalIc * pInfHi];
 
@@ -337,9 +405,11 @@ export function aggregateEventRisk(event, prev, {
     }
   }
 
-  const totalNonIc = event.attendees - totalIc;
   const [pInfNonIcLo, pInfNonIcHi] = weightedIcInfectionRisk(
-    event, prev, non_ic_mask_mix, { hybrid_immunity: HYBRID_IMMUNITY_NON_IC });
+    event, prev, non_ic_mask_mix, {
+      hybrid_immunity: HYBRID_IMMUNITY_NON_IC,
+      sourceEmissionFactor: srcEmit, currentVaxFraction: curVaxFrac,
+    });
   const wHospNonIc = Object.entries(non_ic_vax_mix).reduce(
     (s, [v, w]) => s + w * P_HOSP_GIVEN_INFECTION_NON_IC[v], 0);
   const wLcNonIc = Object.entries(non_ic_vax_mix).reduce(
@@ -358,6 +428,7 @@ export function aggregateEventRisk(event, prev, {
     expected_long_covid: [expLcLo, expLcHi],
     p_any_ic_infected: pAny(expInf[0], expInf[1]),
     p_any_ic_hospitalized: pAny(expHospLo, expHospHi),
+    p_any_ic_hospitalized_mod_sev: pAny(expHospMsLo, expHospMsHi),
     p_any_ic_long_covid: pAny(expLcLo, expLcHi),
     expected_non_ic_attendees: totalNonIc,
     per_non_ic_infection_risk: [pInfNonIcLo, pInfNonIcHi],
@@ -367,6 +438,8 @@ export function aggregateEventRisk(event, prev, {
     p_any_non_ic_infected: pAny(expInfNonIc[0], expInfNonIc[1]),
     p_any_non_ic_hospitalized: pAny(expHospNonIc[0], expHospNonIc[1]),
     p_any_non_ic_long_covid: pAny(expLcNonIc[0], expLcNonIc[1]),
+    sourceEmissionFactor: srcEmit,
+    currentVaxFraction: curVaxFrac,
   };
 }
 

@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Symptomatic attendance probability - COVID risk model evidence</title>
+  <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+  <header>
+    <h1><a href="../index.html">COVID event risk calculator</a></h1>
+    <p class="subtitle">Evidence and methodology for model inputs</p>
+  </header>
+
+  <main class="evidence">
+    <article>
+      <h2>Symptomatic attendance probability</h2>
+      <p><strong>Default:</strong> 0% &mdash; assumes a strict no-symptoms
+        policy where symptomatic individuals do not attend.</p>
+
+      <h3>How it affects the model</h3>
+      <p>Not all infectious people know they are infectious. Some have no
+        symptoms at all; others haven&rsquo;t developed symptoms yet. This
+        input controls the one part event organizers can influence: whether
+        people with active symptoms attend.</p>
+      <p>The model computes the fraction of currently-infectious people who
+        would attend the event by combining three groups:</p>
+      <ol>
+        <li><strong>Asymptomatic</strong> &mdash; fully infectious but will
+          never develop symptoms. They always attend.</li>
+        <li><strong>Presymptomatic</strong> &mdash; infectious but symptoms
+          haven&rsquo;t appeared yet. They attend unknowingly.</li>
+        <li><strong>Symptomatic</strong> &mdash; have active symptoms.
+          Whether they attend depends on event policy and individual
+          behavior (this slider).</li>
+      </ol>
+      <p>Because asymptomatic infections clear faster than symptomatic ones
+        (3 vs 5 days), asymptomatic people make up a smaller share of the
+        currently-infectious pool than their incidence fraction suggests.
+        The model accounts for this by weighting each group by its
+        infectious duration:</p>
+      <table class="grid">
+        <thead><tr><th>Group</th><th>Incidence share</th><th>Infectious days</th><th>Stock share</th></tr></thead>
+        <tbody>
+          <tr><td>Asymptomatic</td><td>50%</td><td>3</td><td>37.5%</td></tr>
+          <tr><td>Presymptomatic</td><td>&mdash;</td><td>1.5</td><td>18.8%</td></tr>
+          <tr><td>Symptomatic</td><td>50%</td><td>3.5</td><td>43.8%</td></tr>
+        </tbody>
+      </table>
+      <p>With a strict no-symptoms policy (slider at 0%), 56% of infectious
+        people would still attend. With no policy and 50% of symptomatic
+        people showing up, 78% would attend.</p>
+
+      <h3>Evidence</h3>
+
+      <h4>Asymptomatic fraction: 50%</h4>
+      <p><a href="https://doi.org/10.1038/s41598-025-28374-y">Choi et al.
+        (2025)</a> developed a compartmental transmission model calibrated
+        against Korean national COVID-19 data from 2020&ndash;2022. They
+        estimated the probability of asymptomatic infection by period and
+        vaccination status:</p>
+      <table class="grid">
+        <thead><tr><th>Period</th><th>Unvaccinated</th><th>Vaccinated</th></tr></thead>
+        <tbody>
+          <tr><td>Period I (ancestral, pre-vaccine)</td><td>31.6%</td><td>&mdash;</td></tr>
+          <tr><td>Period II (Delta)</td><td>37.6%</td><td>41.7%</td></tr>
+          <tr><td>Period III (Omicron)</td><td>44.7%</td><td>49.7%</td></tr>
+        </tbody>
+      </table>
+      <p>Two clear trends: the asymptomatic fraction <strong>increased with
+        each variant</strong>, and <strong>vaccination consistently raised
+        it</strong>. For a 2026 population with near-universal hybrid
+        immunity (vaccination + prior infections), 50% is likely
+        conservative.</p>
+      <p>An earlier meta-analysis of 8 Omicron-era studies
+        (<a href="https://doi.org/10.3390/v14071500">Ma et al. 2022</a>)
+        found a pooled asymptomatic fraction of 32.4% (95% CI:
+        25.3&ndash;39.5%), but this included unvaccinated populations and
+        predates widespread hybrid immunity. It also noted higher rates with
+        vaccination coverage &ge;80% (35.9%) and younger populations
+        (43.8%).</p>
+
+      <h4>Asymptomatic infectious duration: 3 days</h4>
+      <p>Choi et al. (2025), Table 2: the recovery period for vaccinated
+        asymptomatic Omicron cases was <strong>3 days</strong>, compared to
+        5 days for unvaccinated asymptomatic cases. This shorter clearance
+        time means that even though 50% of new infections are asymptomatic,
+        at any snapshot only ~37.5% of currently-infectious people are
+        asymptomatic.</p>
+
+      <h4>Symptomatic infectious duration: 5 days</h4>
+      <p><a href="https://doi.org/10.1016/S2213-2600(22)00226-0">Singanayagam
+        et al. (2022)</a> prospectively followed 57 community COVID-19
+        cases (ATACCC study, UK) with daily viral culture sampling. The
+        median duration of infectious virus shedding was <strong>5 days</strong>
+        (IQR 3&ndash;7). 65% of cases still shed infectious virus at day 5
+        post-symptom onset, dropping to 24% at day 7.</p>
+      <p>This study used pre-Omicron/Delta variants. Omicron infectious
+        periods may be slightly shorter, making 5 days a conservative
+        estimate for total symptomatic infectious duration.</p>
+
+      <h4>Presymptomatic infectious window: 1.5 days</h4>
+      <p>The presymptomatic infectious period is the gap between the onset
+        of infectious shedding and the onset of symptoms. For Omicron:</p>
+      <ul>
+        <li>The <strong>incubation period</strong> (infection to symptoms)
+          is ~3&ndash;3.4 days
+          (<a href="https://doi.org/10.3201/eid2904.220854">Tan et al.
+          2023</a>, Singapore).</li>
+        <li>The <strong>serial interval</strong> (infector symptoms to
+          infectee symptoms) is ~2&ndash;3 days, shorter than the incubation
+          period. This implies substantial presymptomatic transmission
+          (<a href="https://doi.org/10.1016/j.ijid.2022.10.020">Guo et al.
+          2023</a>: 62% of Omicron transmission was presymptomatic).</li>
+        <li>However, the ATACCC viral culture study found only
+          <strong>20% of cases</strong> shed actual infectious virus before
+          symptom onset, even though 63% had PCR-detectable RNA
+          presymptomatically. This suggests the presymptomatic infectious
+          window is short.</li>
+      </ul>
+      <p>The model uses 1.5 days as a compromise: infectiousness likely
+        begins ~1&ndash;2 days before symptoms for Omicron, consistent with
+        both the serial interval data and the viral culture evidence.</p>
+
+      <h3>Limitations</h3>
+      <ul>
+        <li><strong>Asymptomatic fraction is extrapolated forward.</strong>
+          The 50% estimate is from early Omicron (Jan&ndash;Jun 2022) in
+          vaccinated individuals. With 4 additional years of immune
+          maturation and variant evolution, the true value in 2026 could be
+          higher. No current surveillance system measures this directly.</li>
+        <li><strong>Infectious durations are from earlier variants.</strong>
+          The 5-day symptomatic duration is from pre-Omicron/Delta data
+          (ATACCC). The 3-day asymptomatic duration is from a model
+          calibrated to Korean Omicron data. Neither has been validated for
+          2026 variants, though the direction of bias (shorter with more
+          immunity) would make our estimates conservative.</li>
+        <li><strong>Presymptomatic window is uncertain.</strong> Viral
+          culture studies suggest it may be as short as 0&ndash;1 days,
+          while epidemiological modeling suggests 1&ndash;2 days. The model
+          uses 1.5 days as a middle estimate.</li>
+        <li><strong>Symptomatic attendance is behavioral.</strong> The
+          slider default of 0% assumes a strict policy. In practice, people
+          with mild symptoms (slight sore throat, mild congestion) may not
+          recognize them as COVID or may attend anyway. The true
+          symptomatic attendance rate depends on event culture, enforcement,
+          and individual judgment.</li>
+        <li><strong>&ldquo;Asymptomatic&rdquo; definition varies.</strong>
+          Some studies define asymptomatic as no symptoms at any point;
+          others include very mild or &ldquo;paucisymptomatic&rdquo; cases.
+          The Choi et al. model uses the strict definition (never develops
+          symptoms).</li>
+      </ul>
+    </article>
+  </main>
+</body>
+</html>

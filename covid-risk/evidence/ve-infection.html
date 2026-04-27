@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>VE against infection - COVID risk model evidence</title>
+  <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+  <header>
+    <h1><a href="../index.html">COVID event risk calculator</a></h1>
+    <p class="subtitle">Evidence and methodology for model inputs</p>
+  </header>
+
+  <main class="evidence">
+    <article>
+      <h2>VE against infection</h2>
+      <p><strong>Default value:</strong> 25%</p>
+
+      <h3>What this parameter means</h3>
+      <p>VE (vaccine effectiveness) against infection is the reduction in
+        probability that a vaccinated person becomes infected with SARS-CoV-2
+        compared to an unvaccinated person. A VE of 25% means a vaccinated person
+        is 25% less likely to become infected upon exposure.</p>
+      <p>In this model, VE against infection is a <strong>property of the vaccine
+        itself</strong>, not of any specific attendee group. It affects the
+        source side of the transmission equation &mdash; specifically, how many
+        attendees at the event are likely to be infectious:</p>
+      <ol>
+        <li><strong>Prevalence reduction.</strong> Vaccinated attendees are less
+          likely to be currently infectious. The effective prevalence is reduced by
+          <code>p&nbsp;&times;&nbsp;(1&nbsp;&minus;&nbsp;VE)&nbsp;+&nbsp;(1&nbsp;&minus;&nbsp;p)</code>,
+          where p is the fraction of attendees with a current-season vaccine.</li>
+        <li><strong>Breakthrough infection composition.</strong> Among those who
+          <em>are</em> infectious despite vaccination, the model determines what
+          fraction are breakthrough infections (vaccinated) vs unvaccinated.
+          Direct virological evidence for Omicron variants shows that breakthrough
+          infections shed comparable amounts of virus to unvaccinated infections,
+          so no additional shedding reduction is applied.</li>
+      </ol>
+      <p>Higher VE against infection means fewer infectious people at the event,
+        which reduces risk for everyone.</p>
+
+      <h3>Evidence</h3>
+
+      <h4>2024&ndash;2025 vaccine effectiveness against infection</h4>
+      <p><a href="https://doi.org/10.1038/s41467-025-67796-0">A study of 538,631
+        matched pairs</a> in the US Veterans Health Administration measured the
+        effectiveness of the 2024&ndash;2025 KP.2 COVID-19 vaccine against
+        laboratory-confirmed SARS-CoV-2 infection over long-term follow-up:</p>
+      <table class="grid">
+        <thead><tr><th>Days post-vaccination</th><th>VE against infection</th><th>95% CI</th></tr></thead>
+        <tbody>
+          <tr><td>60</td><td>31.3%</td><td>25.6&ndash;36.4%</td></tr>
+          <tr><td>90</td><td>25.8%</td><td>20.9&ndash;29.8%</td></tr>
+          <tr><td>120</td><td>22.4%</td><td>17.7&ndash;26.0%</td></tr>
+          <tr><td>232 (end of follow-up)</td><td>16.6%</td><td>11.9&ndash;21.4%</td></tr>
+        </tbody>
+      </table>
+      <p>VE waned at approximately 0.15 percentage points per day, declining from
+        ~31% at 2 months to ~17% at 8 months. The study population was predominantly
+        older male veterans (mean age 70.7 years, 90.9% male).</p>
+
+      <h4>VE is similar across age groups and diverse populations</h4>
+      <p>The <a href="https://www.cdc.gov/mmwr/volumes/74/wr/mm7406a1.htm">CDC
+        MMWR (2025)</a> reported VE against COVID-19&ndash;associated ED/UC visits
+        from the VISION and IVY networks (137,543 encounters across 20 US states,
+        September 2024&ndash;January 2025). Results stratified by age:</p>
+      <ul>
+        <li><strong>18&ndash;64 years: 30%</strong> (95% CI 20&ndash;39%)</li>
+        <li><strong>&ge;65 years: 35%</strong> (95% CI 29&ndash;41%)</li>
+      </ul>
+      <p>This general healthcare-seeking population (median age 53, 60% female)
+        showed VE similar to the veteran cohort, suggesting <strong>age does not
+        dramatically change VE against infection</strong> for the current vaccine.</p>
+      <p>A <a href="https://sph.unc.edu/sph-news/new-2025-data-shows-covid-19-vaccines-provide-effective-durable-protection/">2025
+        study published in JAMA Internal Medicine</a> measured VE against infection
+        specifically (not just medically attended outcomes) and found a steeper
+        waning curve: 44.7% at 4 weeks, 35.5% at 10 weeks, and 16.7% at 20 weeks
+        &mdash; converging to the same ~15&ndash;20% floor regardless of
+        population.</p>
+
+      <h4>VE against infection is much lower than VE against severe outcomes</h4>
+      <p>For the same 2024&ndash;2025 vaccine season, effectiveness against more
+        severe outcomes was substantially higher
+        (<a href="https://doi.org/10.1056/NEJMoa2510226">NEJM 2025</a>,
+        <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC12424867/">MMWR 2025</a>):</p>
+      <ul>
+        <li>ED visits: <strong>29%</strong></li>
+        <li>Hospitalization: <strong>40%</strong></li>
+        <li>ICU admission: <strong>60%</strong></li>
+        <li>Mechanical ventilation or death: <strong>79%</strong></li>
+      </ul>
+      <p>This gradient &mdash; modest protection against infection but strong
+        protection against severe disease &mdash; is consistent across the
+        pandemic since Omicron. The vaccine&rsquo;s primary benefit is now
+        reducing severity rather than preventing infection.</p>
+
+      <h4>Historical context: VE was much higher earlier in the pandemic</h4>
+      <p>A <a href="https://doi.org/10.1001/jamanetworkopen.2022.50854">systematic
+        review and meta-analysis</a> found VE against infection decreased from
+        68.9% for the primary series to 38.9% after 6 months, with boosters
+        restoring it to 76.4% (declining to 58.4% after 3 months). These higher
+        values applied to earlier variants and vaccine formulations. Current VE
+        against infection is substantially lower due to Omicron lineage immune
+        evasion and population-level hybrid immunity.</p>
+
+      <h4>Is the default of 25% reasonable?</h4>
+      <p>Yes. The 2024&ndash;2025 data shows VE against infection of 31% at
+        2 months declining to 22% at 4 months. A default of 25% corresponds
+        to approximately 3 months post-vaccination &mdash; a reasonable midpoint
+        for an event-attending population with varied vaccination timing.</p>
+      <p>Users should consider adjusting this value based on:</p>
+      <ul>
+        <li><strong>Time since the latest vaccine update:</strong> Shortly after
+          a new formulation is released, VE may be higher (~30%); several months
+          later, it may be lower (~15&ndash;20%).</li>
+        <li><strong>Circulating variant:</strong> If a significantly immune-evasive
+          variant emerges, VE against infection may drop further.</li>
+      </ul>
+
+      <h3>Limitations</h3>
+      <ul>
+        <li><strong>Single value for all vaccinated attendees.</strong> In reality,
+          VE varies by time since vaccination, number of prior infections, age,
+          and immune status. The model uses one value as a population average.</li>
+        <li><strong>Source-side only.</strong> This parameter affects the number
+          of infectious attendees at the event. The susceptible person&rsquo;s
+          own vaccine-derived protection against infection is captured separately
+          through the hybrid immunity parameter.</li>
+        <li><strong>Waning is not modeled dynamically.</strong> The model uses a
+          snapshot VE value. In practice, VE at any given event depends on how
+          recently attendees were vaccinated. With annual vaccine updates, there
+          is a seasonal pattern of higher VE shortly after rollout and lower VE
+          months later.</li>
+      </ul>
+    </article>
+  </main>
+</body>
+</html>

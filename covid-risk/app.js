@@ -3,12 +3,15 @@ import {
   DEFAULT_IC_MASK_MIX, DEFAULT_IC_VAX_MIX,
   DEFAULT_NON_IC_MASK_MIX, DEFAULT_NON_IC_VAX_MIX,
   DEFAULT_AGE_DISTRIBUTION, DEFAULT_SELF_SELECTION,
+  DEFAULT_MONTHS_SINCE_VAX, DEFAULT_SYMPTOMATIC_ATTENDANCE,
   GENERAL_IC_MASK_MIX, GENERAL_IC_VAX_MIX,
   MASK_PROTECTION,
+  veFromMonthsSinceVax, attendableFraction,
   HYBRID_IMMUNITY_IC, HYBRID_IMMUNITY_NON_IC,
-  quantaPerHour, humidityMultiplier, transientDoseFactor,
-  effectiveSourceEmissionFactor,
-  peerVaxPrevalenceFactor, peerVaxEmissionFactor,
+  quantaPerHour, transientDoseFactor,
+  blendedSourceEmissionFactor, blendedCurrentVaxFraction,
+  peerVaxPrevalenceFactor,
+  expectedIcAttendees,
   perEventInfectionProb, aggregateEventRisk,
   fmtProb, fmtRange,
 } from "./model.js";
@@ -20,8 +23,7 @@ import {
 const scalarFields = [
   "attendees", "duration_hours", "room_volume_m3",
   "air_changes_per_hour", "breathing_rate_m3_per_hour",
-  "relative_humidity", "peer_masking_fraction",
-  "peer_current_season_vax_fraction", "ve_infection", "ve_shedding",
+  "months_since_vax",
 ];
 
 const activityIds = {
@@ -31,16 +33,8 @@ const activityIds = {
   eating:       "min_eating",
 };
 
-const peerMaskFields = {
-  cloth:    "peer_mix_cloth",
-  surgical: "peer_mix_surgical",
-  kn95:     "peer_mix_kn95",
-  n95:      "peer_mix_n95",
-};
-
 const prevFields = [
-  "community_infectious_low", "community_infectious_high",
-  "event_attendable_fraction",
+  "symptomatic_attendance",
 ];
 
 const icMaskFields = {
@@ -79,7 +73,6 @@ function freshState() {
     event: {
       ...DEFAULT_EVENT,
       activities: DEFAULT_EVENT.activities.map(a => ({ ...a })),
-      peer_mask_mix: { ...DEFAULT_EVENT.peer_mask_mix },
     },
     prev: { ...DEFAULT_PREVALENCE },
     ic_mask_mix: { ...DEFAULT_IC_MASK_MIX },
@@ -87,6 +80,7 @@ function freshState() {
     non_ic_mask_mix: { ...DEFAULT_NON_IC_MASK_MIX },
     non_ic_vax_mix: { ...DEFAULT_NON_IC_VAX_MIX },
     self_selection: DEFAULT_SELF_SELECTION,
+    months_since_vax: DEFAULT_MONTHS_SINCE_VAX,
     events_per_year: 12,
   };
 }
@@ -123,22 +117,15 @@ function stateToForm() {
   setInputValue("room_volume_m3", state.event.room_volume_m3);
   setInputValue("air_changes_per_hour", state.event.air_changes_per_hour);
   setInputValue("breathing_rate_m3_per_hour", state.event.breathing_rate_m3_per_hour);
-  setInputValue("relative_humidity", state.event.relative_humidity);
-  setInputValue("peer_masking_fraction", state.event.peer_masking_fraction);
-  setInputValue("peer_current_season_vax_fraction", state.event.peer_current_season_vax_fraction);
-  setInputValue("ve_infection", state.event.ve_infection);
-  setInputValue("ve_shedding", state.event.ve_shedding);
+  setInputValue("months_since_vax", state.months_since_vax);
 
   for (const a of state.event.activities) {
     setInputValue(activityIds[a.activity], a.minutes);
   }
-  for (const [k, id] of Object.entries(peerMaskFields)) {
-    setInputValue(id, state.event.peer_mask_mix[k]);
-  }
 
   setInputValue("community_infectious_low", state.prev.community_infectious_low);
   setInputValue("community_infectious_high", state.prev.community_infectious_high);
-  setInputValue("event_attendable_fraction", state.prev.event_attendable_fraction);
+  setInputValue("symptomatic_attendance", state.prev.symptomatic_attendance);
 
   setInputValue("self_selection", state.self_selection);
   setInputValue("events_per_year", state.events_per_year);
@@ -163,22 +150,16 @@ function formToState() {
   state.event.room_volume_m3 = readNumber("room_volume_m3");
   state.event.air_changes_per_hour = readNumber("air_changes_per_hour");
   state.event.breathing_rate_m3_per_hour = readNumber("breathing_rate_m3_per_hour");
-  state.event.relative_humidity = readNumber("relative_humidity");
-  state.event.peer_masking_fraction = readNumber("peer_masking_fraction");
-  state.event.peer_current_season_vax_fraction = readNumber("peer_current_season_vax_fraction");
-  state.event.ve_infection = readNumber("ve_infection");
-  state.event.ve_shedding = readNumber("ve_shedding");
+  state.months_since_vax = readNumber("months_since_vax");
+  state.event.ve_infection = veFromMonthsSinceVax(state.months_since_vax);
 
   for (const a of state.event.activities) {
     a.minutes = readNumber(activityIds[a.activity]);
   }
-  for (const [k, id] of Object.entries(peerMaskFields)) {
-    state.event.peer_mask_mix[k] = readNumber(id);
-  }
 
   state.prev.community_infectious_low = readNumber("community_infectious_low");
   state.prev.community_infectious_high = readNumber("community_infectious_high");
-  state.prev.event_attendable_fraction = readNumber("event_attendable_fraction");
+  state.prev.symptomatic_attendance = readNumber("symptomatic_attendance");
 
   state.self_selection = readNumber("self_selection");
   state.events_per_year = Math.max(1, Math.round(readNumber("events_per_year")));
@@ -203,17 +184,10 @@ function sumOf(obj) {
   return Object.values(obj).reduce((a, b) => a + b, 0);
 }
 
-function renderMixSum(elId, mix) {
-  const s = sumOf(mix);
-  const el = $(elId);
-  if (!el) return;
-  const diff = s - 1;
-  if (Math.abs(diff) < 1e-6) {
-    el.textContent = "Sums to 1.00";
-    el.className = "hint mix-sum ok";
-  } else {
-    el.textContent = `Sums to ${s.toFixed(2)} — will be normalized`;
-    el.className = "hint mix-sum warn";
+function renderMixPcts(fieldMap, normalizedMix) {
+  for (const [k, id] of Object.entries(fieldMap)) {
+    const el = $(`${id}_pct`);
+    if (el) el.textContent = `${Math.round(normalizedMix[k] * 100)}%`;
   }
 }
 
@@ -243,82 +217,46 @@ function fmtNum(v, digits = 2) {
 function render() {
   formToState();
 
-  // Normalize mixes for calculation but preserve raw inputs in the form
-  // (so users can type partial values freely).
-  const peerMaskMix = normalizeMix({ ...state.event.peer_mask_mix });
+  // Normalize mixes for calculation but preserve raw inputs in the form.
   const icMaskMix = normalizeMix({ ...state.ic_mask_mix });
   const icVaxMix = normalizeMix({ ...state.ic_vax_mix });
   const nicMaskMix = normalizeMix({ ...state.non_ic_mask_mix });
   const nicVaxMix = normalizeMix({ ...state.non_ic_vax_mix });
 
-  const ev = { ...state.event, peer_mask_mix: peerMaskMix };
+  const ev = { ...state.event };
   const prev = state.prev;
 
   // Slider readouts
-  $("relative_humidity_out").textContent = `${Math.round(ev.relative_humidity * 100)}%`;
-  $("peer_masking_fraction_out").textContent = `${Math.round(ev.peer_masking_fraction * 100)}%`;
-  $("peer_current_season_vax_fraction_out").textContent =
-    `${Math.round(ev.peer_current_season_vax_fraction * 100)}%`;
-  $("ve_infection_out").textContent = `${Math.round(ev.ve_infection * 100)}%`;
-  $("ve_shedding_out").textContent = `${Math.round(ev.ve_shedding * 100)}%`;
-  $("event_attendable_fraction_out").textContent =
-    `${Math.round(prev.event_attendable_fraction * 100)}%`;
+  const months = state.months_since_vax;
+  const veInf = ev.ve_infection;
+  $("months_since_vax_out").textContent = months >= 12
+    ? `not this season (VE 0%)`
+    : `${months} mo (VE ${Math.round(veInf * 100)}%)`;
+  const sympAtt = prev.symptomatic_attendance;
+  const attFrac = attendableFraction(sympAtt);
+  $("symptomatic_attendance_out").textContent =
+    `${Math.round(sympAtt * 100)}% (${Math.round(attFrac * 100)}% of infectious attend)`;
   $("self_selection_out").textContent = state.self_selection.toFixed(2);
 
-  // Mix sum indicators
-  renderMixSum("peer_mask_mix_sum", state.event.peer_mask_mix);
-  renderMixSum("ic_mask_mix_sum", state.ic_mask_mix);
-  renderMixSum("ic_vax_mix_sum", state.ic_vax_mix);
-  renderMixSum("nic_mask_mix_sum", state.non_ic_mask_mix);
-  renderMixSum("nic_vax_mix_sum", state.non_ic_vax_mix);
-
-  // Emission & exposure table
-  const totalMin = ev.activities.reduce((s, a) => s + a.minutes, 0);
-  const qMed = quantaPerHour(ev.activities, "median");
-  const qMean = quantaPerHour(ev.activities, "mean");
-  const qP90 = quantaPerHour(ev.activities, "p90");
-  const hMult = humidityMultiplier(ev.relative_humidity);
-  const tFactor = transientDoseFactor(ev.duration_hours, ev.air_changes_per_hour);
-  const pvPrev = peerVaxPrevalenceFactor(ev.peer_current_season_vax_fraction, ev.ve_infection);
-  const pvEmit = peerVaxEmissionFactor(
-    ev.peer_current_season_vax_fraction, ev.ve_infection, ev.ve_shedding);
-  const pmEmit = effectiveSourceEmissionFactor(peerMaskMix, ev.peer_masking_fraction);
-
-  const effPrevLo = prev.community_infectious_low * prev.event_attendable_fraction * pvPrev;
-  const effPrevHi = prev.community_infectious_high * prev.event_attendable_fraction * pvPrev;
-
-  $("out_activity_total").textContent = `${fmtNum(totalMin, 0)} min`;
-  $("out_q_median").textContent = fmtNum(qMed);
-  $("out_q_mean").textContent = fmtNum(qMean);
-  $("out_q_p90").textContent = fmtNum(qP90);
-  $("out_humidity").textContent = `×${fmtNum(hMult)}`;
-  $("out_transient").textContent = `×${fmtNum(tFactor, 3)}`;
-  $("out_eff_prevalence").textContent =
-    `${(effPrevLo * 100).toFixed(3)}% – ${(effPrevHi * 100).toFixed(3)}%`;
-  $("out_exp_inf_attendees").textContent =
-    `${fmtNum((ev.attendees - 1) * effPrevLo, 3)} – ${fmtNum((ev.attendees - 1) * effPrevHi, 3)}`;
-  $("out_peer_vax_prev").textContent = `×${fmtNum(pvPrev, 3)}`;
-  $("out_peer_vax_emit").textContent = `×${fmtNum(pvEmit, 3)}`;
-  $("out_peer_mask_emit").textContent = `×${fmtNum(pmEmit, 3)}`;
-
-  // P(infection) by mask
-  const tbody = $("tbl_p_inf_by_mask").querySelector("tbody");
-  tbody.innerHTML = "";
-  const masks = ["none", "surgical", "kn95_typical", "n95_casual", "n95_fit_tested"];
-  for (const m of masks) {
-    const nic = perEventInfectionProb(ev, prev, MASK_PROTECTION[m],
-      { hybrid_immunity: HYBRID_IMMUNITY_NON_IC });
-    const ic = perEventInfectionProb(ev, prev, MASK_PROTECTION[m],
-      { hybrid_immunity: HYBRID_IMMUNITY_IC });
-    const row = document.createElement("tr");
-    row.innerHTML = `
-      <td>${m}</td>
-      <td>${(MASK_PROTECTION[m] * 100).toFixed(0)}%</td>
-      <td>IC: ${fmtRange(ic)}<br>non-IC: ${fmtRange(nic)}</td>`;
-    tbody.appendChild(row);
+  // Mix slider percentages (show normalized share)
+  const actTotal = ev.activities.reduce((s, a) => s + a.minutes, 0);
+  const durationMin = ev.duration_hours * 60;
+  for (const a of ev.activities) {
+    const el = $(`${activityIds[a.activity]}_pct`);
+    if (el && actTotal > 0) {
+      const pct = Math.round(a.minutes / actTotal * 100);
+      const mins = Math.round(a.minutes / actTotal * durationMin);
+      el.textContent = `${pct}% (${mins} min)`;
+    } else if (el) {
+      el.textContent = "0%";
+    }
   }
+  renderMixPcts(icMaskFields, icMaskMix);
+  renderMixPcts(icVaxFields, icVaxMix);
+  renderMixPcts(nicMaskFields, nicMaskMix);
+  renderMixPcts(nicVaxFields, nicVaxMix);
 
-  // Aggregate
+  // Aggregate (compute first — we need blended values for diagnostics)
   const agg = aggregateEventRisk(ev, prev, {
     age_distribution: DEFAULT_AGE_DISTRIBUTION,
     ic_mask_mix: icMaskMix,
@@ -328,18 +266,88 @@ function render() {
     self_selection: state.self_selection,
   });
 
+  // Emission & exposure diagnostics (using blended values from aggregate)
+  const srcEmit = agg.sourceEmissionFactor;
+  const curVaxFrac = agg.currentVaxFraction;
+  const pvPrev = peerVaxPrevalenceFactor(curVaxFrac, ev.ve_infection);
+
+  const qMed = quantaPerHour(ev.activities, "median");
+  const qMean = quantaPerHour(ev.activities, "mean");
+  const qP90 = quantaPerHour(ev.activities, "p90");
+  const tFactor = transientDoseFactor(ev.duration_hours, ev.air_changes_per_hour);
+
+  const effAttFrac = attendableFraction(prev.symptomatic_attendance);
+  const effPrevLo = prev.community_infectious_low * effAttFrac * pvPrev;
+  const effPrevHi = prev.community_infectious_high * effAttFrac * pvPrev;
+
+  $("out_q_median").textContent = fmtNum(qMed);
+  $("out_q_mean").textContent = fmtNum(qMean);
+  $("out_q_p90").textContent = fmtNum(qP90);
+  $("out_transient").textContent = `×${fmtNum(tFactor, 3)}`;
+  $("out_eff_prevalence").textContent =
+    `${(effPrevLo * 100).toFixed(3)}% – ${(effPrevHi * 100).toFixed(3)}%`;
+  $("out_exp_inf_attendees").textContent =
+    `${fmtNum((ev.attendees - 1) * effPrevLo, 3)} – ${fmtNum((ev.attendees - 1) * effPrevHi, 3)}`;
+  $("out_blended_vax_frac").textContent = `${(curVaxFrac * 100).toFixed(1)}%`;
+  $("out_peer_vax_prev").textContent = `×${fmtNum(pvPrev, 3)}`;
+  $("out_peer_mask_emit").textContent = `×${fmtNum(srcEmit, 3)}`;
+
+  // P(infection) by mask
+  const tbody = $("tbl_p_inf_by_mask").querySelector("tbody");
+  tbody.innerHTML = "";
+  const masks = ["none", "surgical", "kn95_typical", "n95_casual", "n95_fit_tested"];
+  for (const m of masks) {
+    const nic = perEventInfectionProb(ev, prev, MASK_PROTECTION[m],
+      { hybrid_immunity: HYBRID_IMMUNITY_NON_IC,
+        sourceEmissionFactor: srcEmit, currentVaxFraction: curVaxFrac });
+    const ic = perEventInfectionProb(ev, prev, MASK_PROTECTION[m],
+      { hybrid_immunity: HYBRID_IMMUNITY_IC,
+        sourceEmissionFactor: srcEmit, currentVaxFraction: curVaxFrac });
+    const row = document.createElement("tr");
+    row.innerHTML = `
+      <td>${m}</td>
+      <td>${(MASK_PROTECTION[m] * 100).toFixed(0)}%</td>
+      <td>IC: ${fmtRange(ic)}<br>non-IC: ${fmtRange(nic)}</td>`;
+    tbody.appendChild(row);
+  }
+
   $("out_ic_total").textContent = fmtNum(agg.expected_ic_attendees);
   $("out_ic_severe").textContent = fmtNum(agg.ic_by_severity.severe);
   $("out_ic_moderate").textContent = fmtNum(agg.ic_by_severity.moderate);
   $("out_ic_mild").textContent = fmtNum(agg.ic_by_severity.mild);
   $("out_non_ic_total").textContent = fmtNum(agg.expected_non_ic_attendees, 1);
 
+  // Combined totals (IC + non-IC)
+  const addRanges = (a, b) => [a[0] + b[0], a[1] + b[1]];
+  const pAnyFromCount = ([lo, hi]) => [1 - Math.exp(-lo), 1 - Math.exp(-hi)];
+
+  const totalInf = addRanges(agg.expected_infections, agg.expected_non_ic_infections);
+  const totalHosp = addRanges(agg.expected_hospitalizations, agg.expected_non_ic_hospitalizations);
+  const totalLc = addRanges(agg.expected_long_covid, agg.expected_non_ic_long_covid);
+
+  const totalsBody = $("tbl_totals").querySelector("tbody");
+  totalsBody.innerHTML = "";
+  const totalRows = [
+    ["Infections",       totalInf,  pAnyFromCount(totalInf)],
+    ["Hospitalizations", totalHosp, pAnyFromCount(totalHosp)],
+    ["Long-COVID",       totalLc,   pAnyFromCount(totalLc)],
+  ];
+  for (const [label, exp, pAny] of totalRows) {
+    const row = document.createElement("tr");
+    row.innerHTML = `
+      <td>${label}</td>
+      <td>${fmtRange(exp)}</td>
+      <td>${fmtRange(pAny)}</td>`;
+    totalsBody.appendChild(row);
+  }
+
+  // IC / non-IC breakdown
   const aggBody = $("tbl_aggregate").querySelector("tbody");
   aggBody.innerHTML = "";
   const aggRows = [
     ["IC infections",                agg.expected_infections,            agg.p_any_ic_infected,       true],
     ["IC hospitalizations",          agg.expected_hospitalizations,      agg.p_any_ic_hospitalized,   true],
-    ["IC hospitalizations (mod+sev)",agg.expected_hospitalizations_mod_sev, null,                     false],
+    ["IC hospitalizations (mod+sev)",agg.expected_hospitalizations_mod_sev, agg.p_any_ic_hospitalized_mod_sev, false],
     ["IC long-COVID",                agg.expected_long_covid,            agg.p_any_ic_long_covid,     false],
     ["Non-IC infections",            agg.expected_non_ic_infections,     agg.p_any_non_ic_infected,   false],
     ["Non-IC hospitalizations",      agg.expected_non_ic_hospitalizations, agg.p_any_non_ic_hospitalized, true],
@@ -360,13 +368,9 @@ function render() {
   annBody.innerHTML = "";
   const n = state.events_per_year;
   const annualRows = [
-    ["IC infections",                agg.expected_infections],
-    ["IC hospitalizations (all IC)", agg.expected_hospitalizations],
-    ["IC hospitalizations (mod+sev)",agg.expected_hospitalizations_mod_sev],
-    ["IC long-COVID",                agg.expected_long_covid],
-    ["Non-IC infections",            agg.expected_non_ic_infections],
-    ["Non-IC hospitalizations",      agg.expected_non_ic_hospitalizations],
-    ["Non-IC long-COVID",            agg.expected_non_ic_long_covid],
+    ["Infections",       totalInf],
+    ["Hospitalizations", totalHosp],
+    ["Long-COVID",       totalLc],
   ];
   for (const [label, exp] of annualRows) {
     const row = document.createElement("tr");
@@ -399,7 +403,6 @@ function collectAllInputIds() {
   return [
     ...scalarFields,
     ...Object.values(activityIds),
-    ...Object.values(peerMaskFields),
     ...prevFields,
     "self_selection",
     "events_per_year",
@@ -432,6 +435,64 @@ function readUrlParams() {
       if (el) el.value = params.get(id);
     }
   }
+}
+
+// --- Live prevalence from SF hospitalization data ---------------------
+
+const SF_HOSP_API = "https://data.sfgov.org/resource/ppwr-akuv.json"
+  + "?$where=respiratory_virus='COVID-19'"
+  + "&$order=week_end_date DESC&$limit=8";
+const SF_POP = 836321;
+const INFECTIOUS_DAYS = 7;
+// IHR range: fraction of all infections (including asymptomatic) that
+// result in hospitalization. Lower IHR → more infections per hosp → higher
+// prevalence estimate. We use this range to produce low/high bounds.
+const IHR_HIGH = 0.025;  // fewer inferred infections → low prevalence
+const IHR_LOW  = 0.015;  // more inferred infections → high prevalence
+const AVERAGING_WEEKS = 4;
+
+async function fetchSfPrevalence() {
+  try {
+    const resp = await fetch(SF_HOSP_API);
+    if (!resp.ok) return null;
+    const rows = await resp.json();
+    if (!rows.length) return null;
+
+    // Use the most recent AVERAGING_WEEKS weeks with data
+    const rates = rows
+      .slice(0, AVERAGING_WEEKS)
+      .map(r => parseFloat(r.admission_rate_per_100k));
+    if (rates.some(r => !Number.isFinite(r))) return null;
+
+    const avgRate = rates.reduce((a, b) => a + b, 0) / rates.length;
+    // avgRate = weekly hospitalizations per 100K
+    // weekly infections per 100K = avgRate / IHR
+    // point prevalence = weekly infections * (infectious_days/7) / 100K
+    const low  = (avgRate / IHR_HIGH) * (INFECTIOUS_DAYS / 7) / 1e5;
+    const high = (avgRate / IHR_LOW)  * (INFECTIOUS_DAYS / 7) / 1e5;
+
+    const dataAsOf = rows[0].week_end_date?.slice(0, 10) || null;
+    return { low, high, dataAsOf, avgRate, weeks: rates.length };
+  } catch {
+    return null;
+  }
+}
+
+function applyLivePrevalence(est) {
+  state.prev.community_infectious_low = est.low;
+  state.prev.community_infectious_high = est.high;
+  setInputValue("community_infectious_low", est.low);
+  setInputValue("community_infectious_high", est.high);
+
+  const note = $("prevalence_live_note");
+  if (note) {
+    note.textContent = `Auto-populated from SF hospital admissions `
+      + `(${AVERAGING_WEEKS}-week avg: ${est.avgRate.toFixed(2)}/100K/wk, `
+      + `data through ${est.dataAsOf})`;
+    note.style.display = "block";
+  }
+
+  render();
 }
 
 // --- Wire up ----------------------------------------------------------
@@ -484,6 +545,11 @@ function init() {
   });
 
   render();
+
+  // Fetch live SF prevalence data (async, updates after initial render)
+  fetchSfPrevalence().then(est => {
+    if (est) applyLivePrevalence(est);
+  });
 }
 
 init();
