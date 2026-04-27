@@ -207,6 +207,66 @@ function normalizeMix(mix) {
   return out;
 }
 
+// --- Baseline comparison --------------------------------------------------
+
+let baselineState = null;
+
+function computeResults(st) {
+  const icMaskMix = normalizeMix({ ...st.ic_mask_mix });
+  const icVaxMix = normalizeMix({ ...st.ic_vax_mix });
+  const nicMaskMix = normalizeMix({ ...st.non_ic_mask_mix });
+  const nicVaxMix = normalizeMix({ ...st.non_ic_vax_mix });
+
+  const ev = { ...st.event };
+  const prev = st.prev;
+
+  const agg = aggregateEventRisk(ev, prev, {
+    age_distribution: DEFAULT_AGE_DISTRIBUTION,
+    ic_mask_mix: icMaskMix,
+    ic_vax_mix: icVaxMix,
+    non_ic_mask_mix: nicMaskMix,
+    non_ic_vax_mix: nicVaxMix,
+    self_selection: st.self_selection,
+  });
+
+  const srcEmit = agg.sourceEmissionFactor;
+  const curVaxFrac = agg.currentVaxFraction;
+
+  const masks = ["none", "cloth", "surgical", "kn95_typical", "n95_casual", "n95_fit_tested"];
+  const maskProbs = {};
+  for (const m of masks) {
+    maskProbs[m] = {
+      nic: perEventInfectionProb(ev, prev, MASK_PROTECTION[m],
+        { hybrid_immunity: HYBRID_IMMUNITY_NON_IC,
+          sourceEmissionFactor: srcEmit, currentVaxFraction: curVaxFrac }),
+      ic: perEventInfectionProb(ev, prev, MASK_PROTECTION[m],
+        { hybrid_immunity: HYBRID_IMMUNITY_IC,
+          sourceEmissionFactor: srcEmit, currentVaxFraction: curVaxFrac }),
+    };
+  }
+
+  const addRanges = (a, b) => [a[0] + b[0], a[1] + b[1]];
+  return {
+    agg,
+    maskProbs,
+    totalInf: addRanges(agg.expected_infections, agg.expected_non_ic_infections),
+    totalHosp: addRanges(agg.expected_hospitalizations, agg.expected_non_ic_hospitalizations),
+    totalLc: addRanges(agg.expected_long_covid, agg.expected_non_ic_long_covid),
+  };
+}
+
+function fmtDelta(curRange, baseRange) {
+  const curMid = (curRange[0] + curRange[1]) / 2;
+  const baseMid = (baseRange[0] + baseRange[1]) / 2;
+  if (baseMid === 0 && curMid === 0) return "\u2014";
+  if (baseMid === 0) return '<span class="delta-up">\u2191</span>';
+  const pct = ((curMid - baseMid) / baseMid) * 100;
+  if (Math.abs(pct) < 0.1) return "\u2014";
+  const sign = pct > 0 ? "+" : "";
+  const cls = pct > 0 ? "delta-up" : "delta-down";
+  return `<span class="${cls}">${sign}${pct.toFixed(1)}%</span>`;
+}
+
 // --- Render outputs ----------------------------------------------------
 
 function fmtNum(v, digits = 2) {
@@ -258,19 +318,17 @@ function render() {
   renderMixPcts(nicMaskFields, nicMaskMix);
   renderMixPcts(nicVaxFields, nicVaxMix);
 
-  // Aggregate (compute first — we need blended values for diagnostics)
-  const agg = aggregateEventRisk(ev, prev, {
-    age_distribution: DEFAULT_AGE_DISTRIBUTION,
-    ic_mask_mix: icMaskMix,
-    ic_vax_mix: icVaxMix,
-    non_ic_mask_mix: nicMaskMix,
-    non_ic_vax_mix: nicVaxMix,
-    self_selection: state.self_selection,
-  });
+  // Compute current and optional baseline results
+  const cur = computeResults(state);
+  const base = baselineState ? computeResults(baselineState) : null;
+  const hasBase = !!base;
 
-  // Emission & exposure diagnostics (using blended values from aggregate)
-  const srcEmit = agg.sourceEmissionFactor;
-  const curVaxFrac = agg.currentVaxFraction;
+  const clearBtn = $("clear_baseline");
+  if (clearBtn) clearBtn.style.display = hasBase ? "" : "none";
+
+  // Emission & exposure diagnostics
+  const srcEmit = cur.agg.sourceEmissionFactor;
+  const curVaxFrac = cur.agg.currentVaxFraction;
   const pvPrev = peerVaxPrevalenceFactor(curVaxFrac, ev.ve_infection);
 
   const qMed = quantaPerHour(ev.activities, "median");
@@ -295,87 +353,101 @@ function render() {
   $("out_peer_mask_emit").textContent = `×${fmtNum(srcEmit, 3)}`;
 
   // P(infection) by mask
-  const tbody = $("tbl_p_inf_by_mask").querySelector("tbody");
-  tbody.innerHTML = "";
+  const maskHead = $("tbl_p_inf_by_mask").querySelector("thead tr");
+  maskHead.innerHTML = hasBase
+    ? '<th>Mask</th><th>Filtration</th><th>Current</th><th>Baseline</th><th>\u0394</th>'
+    : '<th>Mask</th><th>Filtration</th><th>P(infection)</th>';
+  const maskBody = $("tbl_p_inf_by_mask").querySelector("tbody");
+  maskBody.innerHTML = "";
   const masks = ["none", "cloth", "surgical", "kn95_typical", "n95_casual", "n95_fit_tested"];
   for (const m of masks) {
-    const nic = perEventInfectionProb(ev, prev, MASK_PROTECTION[m],
-      { hybrid_immunity: HYBRID_IMMUNITY_NON_IC,
-        sourceEmissionFactor: srcEmit, currentVaxFraction: curVaxFrac });
-    const ic = perEventInfectionProb(ev, prev, MASK_PROTECTION[m],
-      { hybrid_immunity: HYBRID_IMMUNITY_IC,
-        sourceEmissionFactor: srcEmit, currentVaxFraction: curVaxFrac });
+    const { ic, nic } = cur.maskProbs[m];
     const row = document.createElement("tr");
-    row.innerHTML = `
+    let html = `
       <td>${m}</td>
       <td>${(MASK_PROTECTION[m] * 100).toFixed(0)}%</td>
       <td>IC: ${fmtRange(ic)}<br>non-IC: ${fmtRange(nic)}</td>`;
-    tbody.appendChild(row);
+    if (hasBase) {
+      const bi = base.maskProbs[m].ic;
+      const bn = base.maskProbs[m].nic;
+      html += `<td>IC: ${fmtRange(bi)}<br>non-IC: ${fmtRange(bn)}</td>`;
+      html += `<td>IC: ${fmtDelta(ic, bi)}<br>non-IC: ${fmtDelta(nic, bn)}</td>`;
+    }
+    row.innerHTML = html;
+    maskBody.appendChild(row);
   }
 
-  $("out_ic_total").textContent = fmtNum(agg.expected_ic_attendees);
-  $("out_ic_severe").textContent = fmtNum(agg.ic_by_severity.severe);
-  $("out_ic_moderate").textContent = fmtNum(agg.ic_by_severity.moderate);
-  $("out_ic_mild").textContent = fmtNum(agg.ic_by_severity.mild);
-  $("out_non_ic_total").textContent = fmtNum(agg.expected_non_ic_attendees, 1);
+  $("out_ic_total").textContent = fmtNum(cur.agg.expected_ic_attendees);
+  $("out_ic_severe").textContent = fmtNum(cur.agg.ic_by_severity.severe);
+  $("out_ic_moderate").textContent = fmtNum(cur.agg.ic_by_severity.moderate);
+  $("out_ic_mild").textContent = fmtNum(cur.agg.ic_by_severity.mild);
+  $("out_non_ic_total").textContent = fmtNum(cur.agg.expected_non_ic_attendees, 1);
 
-  // Combined totals (IC + non-IC)
-  const addRanges = (a, b) => [a[0] + b[0], a[1] + b[1]];
-
-  const totalInf = addRanges(agg.expected_infections, agg.expected_non_ic_infections);
-  const totalHosp = addRanges(agg.expected_hospitalizations, agg.expected_non_ic_hospitalizations);
-  const totalLc = addRanges(agg.expected_long_covid, agg.expected_non_ic_long_covid);
-
+  // Per-event totals (all attendees)
+  const totalsHead = $("tbl_totals").querySelector("thead tr");
+  totalsHead.innerHTML = hasBase
+    ? '<th>Outcome</th><th>Current</th><th>Baseline</th><th>\u0394</th>'
+    : '<th>Outcome</th><th>Expected count</th>';
   const totalsBody = $("tbl_totals").querySelector("tbody");
   totalsBody.innerHTML = "";
-  const totalRows = [
-    ["Infections",       totalInf],
-    ["Hospitalizations", totalHosp],
-    ["Long-COVID",       totalLc],
-  ];
-  for (const [label, exp] of totalRows) {
+  for (const [label, range, baseRange] of [
+    ["Infections",       cur.totalInf,  base?.totalInf],
+    ["Hospitalizations", cur.totalHosp, base?.totalHosp],
+    ["Long-COVID",       cur.totalLc,   base?.totalLc],
+  ]) {
     const row = document.createElement("tr");
-    row.innerHTML = `
-      <td>${label}</td>
-      <td>${fmtRange(exp)}</td>`;
+    let html = `<td>${label}</td><td>${fmtRange(range)}</td>`;
+    if (hasBase) html += `<td>${fmtRange(baseRange)}</td><td>${fmtDelta(range, baseRange)}</td>`;
+    row.innerHTML = html;
     totalsBody.appendChild(row);
   }
 
-  // IC / non-IC breakdown
-  const aggBody = $("tbl_aggregate").querySelector("tbody");
-  aggBody.innerHTML = "";
-  const aggRows = [
-    ["IC infections",                agg.expected_infections],
-    ["IC hospitalizations",          agg.expected_hospitalizations],
-    ["IC hospitalizations (mod+sev)",agg.expected_hospitalizations_mod_sev],
-    ["IC long-COVID",                agg.expected_long_covid],
-    ["Non-IC infections",            agg.expected_non_ic_infections],
-    ["Non-IC hospitalizations",      agg.expected_non_ic_hospitalizations],
-    ["Non-IC long-COVID",            agg.expected_non_ic_long_covid],
-  ];
-  for (const [label, exp] of aggRows) {
-    const row = document.createElement("tr");
-    row.innerHTML = `
-      <td>${label}</td>
-      <td>${fmtRange(exp)}</td>`;
-    aggBody.appendChild(row);
-  }
-
-  // Annual
+  // Annual totals
+  const n = state.events_per_year;
+  const annHead = $("tbl_annual").querySelector("thead tr");
+  annHead.innerHTML = hasBase
+    ? '<th>Outcome</th><th>Current</th><th>Baseline</th><th>\u0394</th>'
+    : '<th>Outcome</th><th>Expected per year</th>';
   const annBody = $("tbl_annual").querySelector("tbody");
   annBody.innerHTML = "";
-  const n = state.events_per_year;
-  const annualRows = [
-    ["Infections",       totalInf],
-    ["Hospitalizations", totalHosp],
-    ["Long-COVID",       totalLc],
-  ];
-  for (const [label, exp] of annualRows) {
+  const baseN = baselineState?.events_per_year ?? n;
+  for (const [label, range, baseRange] of [
+    ["Infections",       cur.totalInf,  base?.totalInf],
+    ["Hospitalizations", cur.totalHosp, base?.totalHosp],
+    ["Long-COVID",       cur.totalLc,   base?.totalLc],
+  ]) {
+    const scaled = [range[0] * n, range[1] * n];
     const row = document.createElement("tr");
-    row.innerHTML = `
-      <td>${label}</td>
-      <td>${fmtRange([exp[0] * n, exp[1] * n])}</td>`;
+    let html = `<td>${label}</td><td>${fmtRange(scaled)}</td>`;
+    if (hasBase) {
+      const baseScaled = [baseRange[0] * baseN, baseRange[1] * baseN];
+      html += `<td>${fmtRange(baseScaled)}</td><td>${fmtDelta(scaled, baseScaled)}</td>`;
+    }
+    row.innerHTML = html;
     annBody.appendChild(row);
+  }
+
+  // IC / non-IC breakdown
+  const aggHead = $("tbl_aggregate").querySelector("thead tr");
+  aggHead.innerHTML = hasBase
+    ? '<th>Outcome</th><th>Current</th><th>Baseline</th><th>\u0394</th>'
+    : '<th>Outcome</th><th>Expected count</th>';
+  const aggBody = $("tbl_aggregate").querySelector("tbody");
+  aggBody.innerHTML = "";
+  for (const [label, range, baseRange] of [
+    ["IC infections",                 cur.agg.expected_infections,               base?.agg.expected_infections],
+    ["IC hospitalizations",           cur.agg.expected_hospitalizations,         base?.agg.expected_hospitalizations],
+    ["IC hospitalizations (mod+sev)", cur.agg.expected_hospitalizations_mod_sev, base?.agg.expected_hospitalizations_mod_sev],
+    ["IC long-COVID",                 cur.agg.expected_long_covid,               base?.agg.expected_long_covid],
+    ["Non-IC infections",             cur.agg.expected_non_ic_infections,        base?.agg.expected_non_ic_infections],
+    ["Non-IC hospitalizations",       cur.agg.expected_non_ic_hospitalizations,  base?.agg.expected_non_ic_hospitalizations],
+    ["Non-IC long-COVID",             cur.agg.expected_non_ic_long_covid,        base?.agg.expected_non_ic_long_covid],
+  ]) {
+    const row = document.createElement("tr");
+    let html = `<td>${label}</td><td>${fmtRange(range)}</td>`;
+    if (hasBase) html += `<td>${fmtRange(baseRange)}</td><td>${fmtDelta(range, baseRange)}</td>`;
+    row.innerHTML = html;
+    aggBody.appendChild(row);
   }
 
   writeUrlParams();
@@ -524,6 +596,7 @@ function init() {
 
   $("reset_defaults").addEventListener("click", () => {
     state = freshState();
+    baselineState = null;
     stateToForm();
     $("ic_preset").value = "regimented";
     history.replaceState(null, "", location.pathname);
@@ -540,6 +613,17 @@ function init() {
     } catch (err) {
       alert("Copy failed. URL: " + location.href);
     }
+  });
+
+  $("save_baseline").addEventListener("click", () => {
+    formToState();
+    baselineState = JSON.parse(JSON.stringify(state));
+    render();
+  });
+
+  $("clear_baseline").addEventListener("click", () => {
+    baselineState = null;
+    render();
   });
 
   render();
