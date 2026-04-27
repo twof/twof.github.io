@@ -256,11 +256,6 @@ table.grid td:not(:first-child) {
 }
 table.grid tbody tr:last-child td { border-bottom: none; }
 
-table.grid tr.emphasize td {
-  font-weight: 600;
-  background: #fff8e6;
-}
-
 /* Evidence pages */
 main.evidence {
   display: block;

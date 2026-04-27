@@ -321,7 +321,6 @@ function render() {
 
   // Combined totals (IC + non-IC)
   const addRanges = (a, b) => [a[0] + b[0], a[1] + b[1]];
-  const pAnyFromCount = ([lo, hi]) => [1 - Math.exp(-lo), 1 - Math.exp(-hi)];
 
   const totalInf = addRanges(agg.expected_infections, agg.expected_non_ic_infections);
   const totalHosp = addRanges(agg.expected_hospitalizations, agg.expected_non_ic_hospitalizations);
@@ -330,16 +329,15 @@ function render() {
   const totalsBody = $("tbl_totals").querySelector("tbody");
   totalsBody.innerHTML = "";
   const totalRows = [
-    ["Infections",       totalInf,  pAnyFromCount(totalInf)],
-    ["Hospitalizations", totalHosp, pAnyFromCount(totalHosp)],
-    ["Long-COVID",       totalLc,   pAnyFromCount(totalLc)],
+    ["Infections",       totalInf],
+    ["Hospitalizations", totalHosp],
+    ["Long-COVID",       totalLc],
   ];
-  for (const [label, exp, pAny] of totalRows) {
+  for (const [label, exp] of totalRows) {
     const row = document.createElement("tr");
     row.innerHTML = `
       <td>${label}</td>
-      <td>${fmtRange(exp)}</td>
-      <td>${fmtRange(pAny)}</td>`;
+      <td>${fmtRange(exp)}</td>`;
     totalsBody.appendChild(row);
   }
 
@@ -347,21 +345,19 @@ function render() {
   const aggBody = $("tbl_aggregate").querySelector("tbody");
   aggBody.innerHTML = "";
   const aggRows = [
-    ["IC infections",                agg.expected_infections,            agg.p_any_ic_infected,       true],
-    ["IC hospitalizations",          agg.expected_hospitalizations,      agg.p_any_ic_hospitalized,   true],
-    ["IC hospitalizations (mod+sev)",agg.expected_hospitalizations_mod_sev, agg.p_any_ic_hospitalized_mod_sev, false],
-    ["IC long-COVID",                agg.expected_long_covid,            agg.p_any_ic_long_covid,     false],
-    ["Non-IC infections",            agg.expected_non_ic_infections,     agg.p_any_non_ic_infected,   false],
-    ["Non-IC hospitalizations",      agg.expected_non_ic_hospitalizations, agg.p_any_non_ic_hospitalized, true],
-    ["Non-IC long-COVID",            agg.expected_non_ic_long_covid,     agg.p_any_non_ic_long_covid, false],
+    ["IC infections",                agg.expected_infections],
+    ["IC hospitalizations",          agg.expected_hospitalizations],
+    ["IC hospitalizations (mod+sev)",agg.expected_hospitalizations_mod_sev],
+    ["IC long-COVID",                agg.expected_long_covid],
+    ["Non-IC infections",            agg.expected_non_ic_infections],
+    ["Non-IC hospitalizations",      agg.expected_non_ic_hospitalizations],
+    ["Non-IC long-COVID",            agg.expected_non_ic_long_covid],
   ];
-  for (const [label, exp, pAny, emphasize] of aggRows) {
+  for (const [label, exp] of aggRows) {
     const row = document.createElement("tr");
-    if (emphasize) row.className = "emphasize";
     row.innerHTML = `
       <td>${label}</td>
-      <td>${fmtRange(exp)}</td>
-      <td>${pAny ? fmtRange(pAny) : "—"}</td>`;
+      <td>${fmtRange(exp)}</td>`;
     aggBody.appendChild(row);
   }
 
