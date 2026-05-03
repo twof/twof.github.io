@@ -23,7 +23,7 @@ import {
 const scalarFields = [
   "attendees", "duration_hours", "room_volume_m3",
   "air_changes_per_hour", "breathing_rate_m3_per_hour",
-  "months_since_vax",
+  "months_since_vax", "self_selection", "events_per_year",
 ];
 
 const activityIds = {
@@ -68,6 +68,13 @@ const nicVaxFields = {
   none:        "nic_vax_none",
 };
 
+const ageFields = {
+  "18-39": "age_18_39",
+  "40-59": "age_40_59",
+  "60-69": "age_60_69",
+  "70+":   "age_70_plus",
+};
+
 // --- State -------------------------------------------------------------
 
 function freshState() {
@@ -81,6 +88,7 @@ function freshState() {
     ic_vax_mix: { ...DEFAULT_IC_VAX_MIX },
     non_ic_mask_mix: { ...DEFAULT_NON_IC_MASK_MIX },
     non_ic_vax_mix: { ...DEFAULT_NON_IC_VAX_MIX },
+    age_distribution: { ...DEFAULT_AGE_DISTRIBUTION },
     self_selection: DEFAULT_SELF_SELECTION,
     months_since_vax: DEFAULT_MONTHS_SINCE_VAX,
     events_per_year: 12,
@@ -132,6 +140,9 @@ function stateToForm() {
   setInputValue("self_selection", state.self_selection);
   setInputValue("events_per_year", state.events_per_year);
 
+  for (const [k, id] of Object.entries(ageFields)) {
+    setInputValue(id, state.age_distribution[k]);
+  }
   for (const [k, id] of Object.entries(icMaskFields)) {
     setInputValue(id, state.ic_mask_mix[k]);
   }
@@ -166,6 +177,9 @@ function formToState() {
   state.self_selection = readNumber("self_selection");
   state.events_per_year = Math.max(1, Math.round(readNumber("events_per_year")));
 
+  for (const [k, id] of Object.entries(ageFields)) {
+    state.age_distribution[k] = readNumber(id);
+  }
   for (const [k, id] of Object.entries(icMaskFields)) {
     state.ic_mask_mix[k] = readNumber(id);
   }
@@ -216,12 +230,13 @@ function computeResults(st) {
   const icVaxMix = normalizeMix({ ...st.ic_vax_mix });
   const nicMaskMix = normalizeMix({ ...st.non_ic_mask_mix });
   const nicVaxMix = normalizeMix({ ...st.non_ic_vax_mix });
+  const ageDist = normalizeMix({ ...st.age_distribution });
 
   const ev = { ...st.event };
   const prev = st.prev;
 
   const agg = aggregateEventRisk(ev, prev, {
-    age_distribution: DEFAULT_AGE_DISTRIBUTION,
+    age_distribution: ageDist,
     ic_mask_mix: icMaskMix,
     ic_vax_mix: icVaxMix,
     non_ic_mask_mix: nicMaskMix,
@@ -311,6 +326,16 @@ function render() {
       el.textContent = `${pct}% (${mins} min)`;
     } else if (el) {
       el.textContent = "0%";
+    }
+  }
+  const ageDist = normalizeMix({ ...state.age_distribution });
+  const attendees = ev.attendees;
+  for (const [k, id] of Object.entries(ageFields)) {
+    const el = $(`${id}_pct`);
+    if (el) {
+      const pct = Math.round(ageDist[k] * 100);
+      const count = Math.round(ageDist[k] * attendees);
+      el.textContent = `${pct}% (${count})`;
     }
   }
   renderMixPcts(icMaskFields, icMaskMix);
@@ -474,8 +499,7 @@ function collectAllInputIds() {
     ...scalarFields,
     ...Object.values(activityIds),
     ...prevFields,
-    "self_selection",
-    "events_per_year",
+    ...Object.values(ageFields),
     ...Object.values(icMaskFields),
     ...Object.values(icVaxFields),
     ...Object.values(nicMaskFields),
@@ -517,8 +541,8 @@ const INFECTIOUS_DAYS = 7;
 // IHR range: fraction of all infections (including asymptomatic) that
 // result in hospitalization. Lower IHR → more infections per hosp → higher
 // prevalence estimate. We use this range to produce low/high bounds.
-const IHR_HIGH = 0.025;  // fewer inferred infections → low prevalence
-const IHR_LOW  = 0.015;  // more inferred infections → high prevalence
+const IHR_HIGH = 0.019;  // fewer inferred infections → low prevalence
+const IHR_LOW  = 0.013;  // more inferred infections → high prevalence
 const AVERAGING_WEEKS = 4;
 
 async function fetchSfPrevalence() {

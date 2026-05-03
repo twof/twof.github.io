@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Hybrid immunity - COVID risk model evidence</title>
+  <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+  <header>
+    <h1><a href="../index.html">COVID event risk calculator</a></h1>
+    <p class="subtitle">Evidence and methodology for model inputs</p>
+  </header>
+
+  <main class="evidence">
+    <article>
+      <h2>Hybrid immunity</h2>
+      <p><strong>Defaults:</strong> Non-IC: 50% dose reduction.
+        IC: 20% dose reduction.</p>
+
+      <h3>How it affects the model</h3>
+      <p>The hybrid immunity parameter represents accumulated immune
+        protection from prior SARS-CoV-2 infections and historical
+        vaccination. It is applied as a multiplicative reduction on the
+        effective inhaled dose:</p>
+      <pre>effective_dose = base_dose &times; (1 &minus; hybrid_immunity) &times; &hellip;</pre>
+      <p>A value of 0.50 means the effective dose is halved; a naive
+        person with no prior exposure would have hybrid_immunity&nbsp;=&nbsp;0.</p>
+      <p>This parameter is <strong>separate from</strong> the current-season
+        vaccine effectiveness (<code>ve_infection</code>), which captures
+        the fast-waning, variant-specific protection from the most recent
+        vaccine dose and is applied on the source side (reducing effective
+        prevalence via reduced shedding). Hybrid immunity captures the
+        slower-waning protection from memory T&nbsp;cells, B&nbsp;cells,
+        and mucosal immunity accumulated over multiple exposures.</p>
+
+      <h3>Evidence: non-IC (50%)</h3>
+      <p>By 2026, the vast majority of the US population has hybrid
+        immunity from multiple prior infections and vaccinations. The
+        question is how much residual protection this provides against
+        infection with current circulating variants.</p>
+
+      <h4>Meta-analysis of hybrid immunity against Omicron reinfection</h4>
+      <p><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC11381385/">Ma
+        et al. (2024)</a> pooled 17 studies through July 2024, comparing
+        hybrid immunity to other immune states against Omicron
+        reinfection:</p>
+      <table class="grid">
+        <thead><tr><th>Comparison</th><th>Pooled OR (95% CI)</th><th>Interpretation</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>Hybrid + booster vs natural immunity</td>
+            <td>0.43 (0.34&ndash;0.56)</td>
+            <td>57% risk reduction</td>
+          </tr>
+          <tr>
+            <td>Hybrid + complete vax vs natural immunity</td>
+            <td>0.58 (0.45&ndash;0.74)</td>
+            <td>42% risk reduction</td>
+          </tr>
+          <tr>
+            <td>Hybrid + complete vax vs vaccine-only</td>
+            <td>0.35 (0.27&ndash;0.46)</td>
+            <td>65% risk reduction</td>
+          </tr>
+        </tbody>
+      </table>
+      <p>Protection waned over time but remained substantial:</p>
+      <table class="grid">
+        <thead><tr><th>Vaccination status</th><th>Effectiveness &le;60 days</th><th>Effectiveness 270&ndash;365 days</th></tr></thead>
+        <tbody>
+          <tr><td>Hybrid + incomplete vax</td><td>66.8%</td><td>33.2% (365&ndash;639d)</td></tr>
+          <tr><td>Hybrid + complete vax</td><td>76.9%</td><td>54.4%</td></tr>
+          <tr><td>Hybrid + booster</td><td>78.3%</td><td>(limited follow-up)</td></tr>
+        </tbody>
+      </table>
+
+      <h4>US real-world effectiveness</h4>
+      <p><a href="https://pubmed.ncbi.nlm.nih.gov/39774936/">Florea
+        et al. (2025)</a> studied US adults from September 2022 through
+        July 2023 during the Omicron-dominant period:</p>
+      <ul>
+        <li>Hybrid immunity VE against infection: <strong>62.2%</strong>
+          (95% CI: 46.0&ndash;74.5%) within 7&ndash;179 days</li>
+        <li>Waning to <strong>39.4%</strong> (95% CI: 12.5&ndash;61.6%)
+          at &ge;180 days</li>
+        <li>Vaccination alone (bivalent): 37.2% at &lt;60 days, declining
+          to 21.1% at 60&ndash;179 days</li>
+      </ul>
+
+      <h4>Canadian population cohort</h4>
+      <p><a href="https://academic.oup.com/cid/article/78/5/1372/7450138">Carazo
+        et al. (2024)</a> analyzed 5&nbsp;million residents across the
+        BA.1 through BQ/XBB periods. Hybrid immunity with 5 doses
+        maintained &gt;90% effectiveness against severe outcomes through
+        the BA.4/BA.5 period, declining to 63&ndash;91% during BQ/XBB
+        depending on recency.</p>
+
+      <h4>Healthcare worker cohort</h4>
+      <p><a href="https://onlinelibrary.wiley.com/doi/10.1002/ajim.23570">Jacobson
+        et al. (2024)</a> followed vaccinated healthcare personnel over
+        13&nbsp;months. Those <em>without</em> hybrid immunity had a
+        <strong>3.0&times;</strong> higher hazard of infection (41.7%
+        infected vs 16.2% with hybrid immunity).</p>
+
+      <h4>Rationale for 50%</h4>
+      <p>Hybrid immunity effectiveness against Omicron infection ranges
+        from ~65% shortly after the last immune event to ~35&ndash;40% at
+        6+&nbsp;months. For a 2026 population where most individuals had
+        their last immune-boosting event (infection or vaccination)
+        several months ago, <strong>50%</strong> is a reasonable central
+        estimate. This translates to a 50% reduction in effective inhaled
+        dose in the Wells-Riley model.</p>
+
+      <h3>Evidence: IC (20%)</h3>
+      <p>Immunocompromised individuals mount weaker immune responses to
+        both infection and vaccination, resulting in less durable
+        protection.</p>
+
+      <h4>IC breakthrough infection risk vs general population</h4>
+      <p><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC11044684/">Bytyci
+        et al. (2024)</a> systematically reviewed breakthrough infection
+        risk in vaccinated IC patients vs the general vaccinated
+        population:</p>
+      <table class="grid">
+        <thead><tr><th>IC condition</th><th>Breakthrough RR vs non-IC</th></tr></thead>
+        <tbody>
+          <tr><td>Cancer</td><td>1.4&times;</td></tr>
+          <tr><td>HIV</td><td>1.9&times;</td></tr>
+          <tr><td>Chronic kidney disease</td><td>2.3&times;</td></tr>
+          <tr><td>Immunodeficiency</td><td>2.6&times;</td></tr>
+          <tr><td>Organ transplant</td><td>6.9&times;</td></tr>
+        </tbody>
+      </table>
+      <p>Excluding the extreme transplant category, the blended RR across
+        most IC conditions is roughly <strong>2&times;</strong>.</p>
+
+      <h4>Faster waning in IC populations</h4>
+      <p><a href="https://www.frontiersin.org/journals/immunology/articles/10.3389/fimmu.2024.1502598/full">Sefik
+        et al. (2024)</a> found that immunocompromised children showed
+        significantly faster decline in T&nbsp;cell and memory B&nbsp;cell
+        responses compared to healthy peers. Hybrid immunity in IC
+        children dropped below protective thresholds by month&nbsp;12,
+        while healthy children maintained adequate protection.</p>
+      <p>After two vaccine doses alone, IC children &ldquo;failed to
+        produce T&nbsp;cell and memory B&nbsp;cell responses reaching
+        thresholds of protection,&rdquo; requiring a 3-dose primary
+        series and yearly or twice-yearly boosters.</p>
+
+      <h4>Kidney transplant: hybrid immunity still helps</h4>
+      <p><a href="https://pubmed.ncbi.nlm.nih.gov/39097095/">Stand
+        et al. (2024)</a> found that among kidney transplant recipients,
+        hybrid immunity was associated with a 72% lower risk of infection
+        (aHR&nbsp;0.28) and 96% lower risk of hospitalization
+        (aHR&nbsp;0.04) compared to vaccination alone. Even in the most
+        immunosuppressed populations, prior infection adds meaningful
+        protection.</p>
+
+      <h4>Rationale for 20%</h4>
+      <p>The model&rsquo;s IC dose factor (1&nbsp;&minus;&nbsp;0.20&nbsp;=&nbsp;0.80)
+        divided by the non-IC dose factor
+        (1&nbsp;&minus;&nbsp;0.50&nbsp;=&nbsp;0.50) yields a ratio of
+        <strong>1.6&times;</strong>, which sits within the 1.4&ndash;2.6&times;
+        RR range for most IC conditions (excluding transplant). A 20%
+        dose reduction reflects meaningfully impaired but not absent
+        immune memory &mdash; consistent with the finding that IC
+        individuals retain some hybrid immunity but lose it faster and
+        mount weaker initial responses.</p>
+
+      <h3>Limitations</h3>
+      <ul>
+        <li><strong>Single value for all IC conditions.</strong> The model
+          uses one hybrid immunity value for all IC attendees, but
+          breakthrough RR ranges from 1.4&times; (cancer) to
+          6.9&times; (transplant). Severe IC conditions like recent
+          transplant may have near-zero hybrid immunity. The IC severity
+          mix (severe/moderate/mild) partially captures this variation
+          through outcome rates, but not through dose reduction.</li>
+        <li><strong>No time dependence.</strong> Hybrid immunity is
+          applied as a constant, but real protection wanes over months.
+          The model&rsquo;s separate VE waning curve captures some of
+          this for the most recent vaccine dose, but accumulated
+          immunity from prior infections also wanes (roughly halving
+          every 6&ndash;12 months for infection protection).</li>
+        <li><strong>Variant mismatch.</strong> Hybrid immunity
+          effectiveness depends heavily on antigenic distance between
+          prior exposures and the currently circulating variant. A major
+          antigenic shift could substantially reduce hybrid immunity
+          effectiveness. The values here reflect 2024&ndash;2025
+          Omicron-lineage data.</li>
+        <li><strong>Dose-reduction vs effectiveness.</strong> The model
+          applies hybrid immunity as a dose-reduction factor in the
+          Wells-Riley exponential model. At low doses (low prevalence),
+          dose-reduction and effectiveness are approximately equivalent.
+          At high doses (high prevalence or long exposure), the
+          exponential relationship means a 50% dose reduction provides
+          more than 50% effectiveness.</li>
+      </ul>
+
+      <h3>Sources</h3>
+      <ul>
+        <li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC11381385/">Ma
+          et al. (2024)</a> &mdash; Meta-analysis of hybrid immunity vs
+          Omicron reinfection, 17 studies (Frontiers in Public
+          Health)</li>
+        <li><a href="https://pubmed.ncbi.nlm.nih.gov/39774936/">Florea
+          et al. (2025)</a> &mdash; US hybrid immunity effectiveness
+          against Omicron infection (PubMed)</li>
+        <li><a href="https://academic.oup.com/cid/article/78/5/1372/7450138">Carazo
+          et al. (2024)</a> &mdash; 5M-person Canadian cohort,
+          vaccination + prior infection vs Omicron severe outcomes
+          (Clinical Infectious Diseases)</li>
+        <li><a href="https://onlinelibrary.wiley.com/doi/10.1002/ajim.23570">Jacobson
+          et al. (2024)</a> &mdash; Healthcare worker hybrid immunity
+          cohort (American Journal of Industrial Medicine)</li>
+        <li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC11044684/">Bytyci
+          et al. (2024)</a> &mdash; IC breakthrough infection risk
+          systematic review (Immunity, Inflammation and Disease)</li>
+        <li><a href="https://www.frontiersin.org/journals/immunology/articles/10.3389/fimmu.2024.1502598/full">Sefik
+          et al. (2024)</a> &mdash; Reduced hybrid immunity durability in
+          IC children (Frontiers in Immunology)</li>
+        <li><a href="https://pubmed.ncbi.nlm.nih.gov/39097095/">Stand
+          et al. (2024)</a> &mdash; Hybrid immunity in kidney transplant
+          recipients (PubMed)</li>
+      </ul>
+    </article>
+  </main>
+</body>
+</html>

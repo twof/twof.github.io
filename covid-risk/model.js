@@ -32,38 +32,45 @@ export const MASK_TO_SOURCE_CONTROL = {
 export const HYBRID_IMMUNITY_NON_IC = 0.50;
 export const HYBRID_IMMUNITY_IC = 0.20;
 
+// Derived from CDC COVID-NET 2023-2024 age-specific hospitalization rates
+// combined with INFORM study IC-specific aIRRs (Quint et al. 2023, n=12M).
+// See evidence/hosp-given-infection.html for derivation.
 export const P_HOSP_GIVEN_INFECTION = {
-  "severe|vax+prep": 0.020,
-  "severe|vax_only": 0.055,
-  "severe|old_vax":  0.115,
-  "severe|none":     0.200,
+  "severe|vax+prep": 0.010,
+  "severe|vax_only": 0.030,
+  "severe|old_vax":  0.050,
+  "severe|none":     0.080,
 
-  "moderate|vax+prep": 0.007,
-  "moderate|vax_only": 0.020,
-  "moderate|old_vax":  0.045,
-  "moderate|none":     0.080,
+  "moderate|vax+prep": 0.004,
+  "moderate|vax_only": 0.012,
+  "moderate|old_vax":  0.020,
+  "moderate|none":     0.035,
 
-  "mild|vax+prep": 0.003,
-  "mild|vax_only": 0.010,
-  "mild|old_vax":  0.020,
-  "mild|none":     0.040,
+  "mild|vax+prep": 0.0015,
+  "mild|vax_only": 0.005,
+  "mild|old_vax":  0.008,
+  "mild|none":     0.015,
 };
 
+// Derived from Omicron-era community cohort data (Florea et al. 2024,
+// ~8% vaccinated / ~27% unvaccinated at 90 days) calibrated to stricter
+// NASEM definition (~4-10%). IC multiplier ~1.5x from National COVID
+// Cohort (SOT aOR 1.48). See evidence/long-covid.html.
 export const LONG_COVID_PER_INFECTION = {
-  "severe|vax+prep": 0.09,
-  "severe|vax_only": 0.09,
-  "severe|old_vax":  0.20,
-  "severe|none":     0.30,
+  "severe|vax+prep": 0.08,
+  "severe|vax_only": 0.10,
+  "severe|old_vax":  0.15,
+  "severe|none":     0.25,
 
-  "moderate|vax+prep": 0.07,
-  "moderate|vax_only": 0.07,
+  "moderate|vax+prep": 0.06,
+  "moderate|vax_only": 0.08,
   "moderate|old_vax":  0.12,
-  "moderate|none":     0.18,
+  "moderate|none":     0.20,
 
-  "mild|vax+prep": 0.06,
+  "mild|vax+prep": 0.05,
   "mild|vax_only": 0.06,
-  "mild|old_vax":  0.08,
-  "mild|none":     0.10,
+  "mild|old_vax":  0.09,
+  "mild|none":     0.15,
 };
 
 export const IC_PREVALENCE_BY_AGE = {
@@ -73,10 +80,15 @@ export const IC_PREVALENCE_BY_AGE = {
   "70+":   0.078,
 };
 
+// Derived from US condition-prevalence data (transplant, cancer, HIV,
+// autoimmune, ESKD, PID counts) mapped to INFORM aIRR severity tiers.
+// Cross-checked: blended aIRR = 2.6x, consistent with INFORM observed
+// 2.04x (2.04 is all-ages; event pop skews younger = slightly higher).
+// See evidence/ic-prevalence.html.
 export const IC_SEVERITY_MIX = {
-  severe:   0.22,
-  moderate: 0.55,
-  mild:     0.23,
+  severe:   0.05,
+  moderate: 0.20,
+  mild:     0.75,
 };
 
 export const DEFAULT_AGE_DISTRIBUTION = {
@@ -87,18 +99,18 @@ export const DEFAULT_AGE_DISTRIBUTION = {
 };
 
 export const DEFAULT_IC_MASK_MIX = {
-  n95_fit_tested: 0.05,
-  n95_casual:     0.05,
-  kn95_typical:   0.10,
-  surgical:       0.10,
-  cloth:          0.10,
-  none:           0.60,
+  n95_fit_tested: 0.10,
+  n95_casual:     0.25,
+  kn95_typical:   0.60,
+  surgical:       0.05,
+  cloth:          0.00,
+  none:           0.00,
 };
 
 export const DEFAULT_IC_VAX_MIX = {
-  "vax+prep": 0.02,
+  "vax+prep": 0.08,
   "vax_only": 0.30,
-  "old_vax":  0.68,
+  "old_vax":  0.62,
   "none":     0.00,
 };
 
@@ -118,16 +130,48 @@ export const GENERAL_IC_VAX_MIX = {
   "none":     0.30,
 };
 
+// Derived from CDC COVID-NET 2023-2024 18-49 hospitalization rate
+// (38.9/100K), age-adjusted infection rate (~12%), and VE against
+// hospitalization (45% current, ~15% old). See evidence/hosp-given-infection.html.
 export const P_HOSP_GIVEN_INFECTION_NON_IC = {
-  vax_current: 0.0005,
-  vax_old:     0.0010,
+  vax_current: 0.0010,
+  vax_old:     0.0015,
   none:        0.0030,
 };
 
+// Omicron-era community cohort: ~8% vaccinated at 90 days (broad symptom
+// definition), calibrated to ~4% for NASEM-type definition with current
+// vax + hybrid immunity. See evidence/long-covid.html.
 export const P_LONG_COVID_PER_INFECTION_NON_IC = {
   vax_current: 0.04,
   vax_old:     0.06,
   none:        0.10,
+};
+
+// Age multipliers for non-IC hospitalization and long-COVID rates.
+// Base rates (P_HOSP_GIVEN_INFECTION_NON_IC, P_LONG_COVID_PER_INFECTION_NON_IC)
+// are calibrated for 18-39. These multipliers scale them for older age bands.
+// Log-linear interpolation of seroprevalence-based IHR by age (PMC11736415):
+//   18-49: 0.84%, 50-69: 2.4%, 70+: 10.0%.
+// Cross-checked against COVID-NET 2023-2024 population rates.
+// See evidence/hosp-given-infection.html.
+export const NON_IC_HOSP_AGE_MULTIPLIER = {
+  "18-39": 1.0,
+  "40-59": 1.90,
+  "60-69": 4.03,
+  "70+":  10.0,
+};
+
+// Long-COVID age gradient is much flatter than hospitalization.
+// Peaks in 50-64, then decreases in 65+ (immune overactivation is
+// a driver, and older adults may have less of it).
+// Derived from MEPS Spring 2023: 18-34 9.8%, 35-49 13.5%,
+// 50-64 17.9%, 65+ 14.7%. See evidence/long-covid.html.
+export const NON_IC_LC_AGE_MULTIPLIER = {
+  "18-39": 1.0,
+  "40-59": 1.6,
+  "60-69": 1.8,
+  "70+":   1.5,
 };
 
 export const DEFAULT_NON_IC_VAX_MIX = {
@@ -138,20 +182,20 @@ export const DEFAULT_NON_IC_VAX_MIX = {
 
 export const DEFAULT_NON_IC_MASK_MIX = {
   n95_fit_tested: 0.00,
-  n95_casual:     0.00,
-  kn95_typical:   0.00,
-  surgical:       0.00,
+  n95_casual:     0.10,
+  kn95_typical:   0.65,
+  surgical:       0.25,
   cloth:          0.00,
-  none:           1.00,
+  none:           0.00,
 };
 
 export const DEFAULT_SELF_SELECTION = 0.70;
 
 export const DEFAULT_ACTIVITIES = [
-  { activity: "breathing",    minutes: 0.68 },
-  { activity: "speaking",     minutes: 0.21 },
-  { activity: "singing_loud", minutes: 0.03 },
-  { activity: "eating",       minutes: 0.08 },
+  { activity: "breathing",    minutes: 0.63 },
+  { activity: "speaking",     minutes: 0.20 },
+  { activity: "singing_loud", minutes: 0.04 },
+  { activity: "eating",       minutes: 0.12 },
 ];
 
 // VE against infection waning curve, piecewise linear interpolation.
@@ -173,7 +217,7 @@ export function veFromMonthsSinceVax(months) {
   return 0;
 }
 
-export const DEFAULT_MONTHS_SINCE_VAX = 3;
+export const DEFAULT_MONTHS_SINCE_VAX = 9;
 
 export const DEFAULT_EVENT = {
   attendees: 100,
@@ -182,7 +226,7 @@ export const DEFAULT_EVENT = {
   air_changes_per_hour: 3.0,
   breathing_rate_m3_per_hour: 0.5,
   activities: DEFAULT_ACTIVITIES.map(a => ({ ...a })),
-  ve_infection: veFromMonthsSinceVax(3),
+  ve_infection: veFromMonthsSinceVax(9),
 };
 
 // --- Asymptomatic / presymptomatic parameters --------------------------
@@ -293,9 +337,10 @@ export function perEventInfectionProb(event, prev, mask_filtration, {
   const qEat = eatingFrac > 0 ? quantaPerHour(eatingActs, percentile) : 0;
   const qRest = eatingFrac < 1 ? quantaPerHour(nonEatingActs, percentile) : 0;
 
+  const ach = Math.max(event.air_changes_per_hour, 0.01);
   const base = event.duration_hours * event.breathing_rate_m3_per_hour
-    * transientDoseFactor(event.duration_hours, event.air_changes_per_hour)
-    / (event.air_changes_per_hour * event.room_volume_m3);
+    * transientDoseFactor(event.duration_hours, ach)
+    / (ach * event.room_volume_m3);
 
   const effectiveDose = base * (1 - hybrid_immunity) * (
     eatingFrac * qEat                                                   // no masks
@@ -336,7 +381,7 @@ export function expectedIcAttendees(attendees, age_distribution, self_selection)
   return { total, bySeverity };
 }
 
-export function weightedIcInfectionRisk(event, prev, mask_mix, {
+export function weightedMaskInfectionRisk(event, prev, mask_mix, {
   hybrid_immunity = HYBRID_IMMUNITY_IC,
   sourceEmissionFactor = 1.0,
   currentVaxFraction = 0.0,
@@ -380,7 +425,7 @@ export function aggregateEventRisk(event, prev, {
   const srcEmit = blendedSourceEmissionFactor(ic_mask_mix, non_ic_mask_mix, totalIc, totalNonIc);
   const curVaxFrac = blendedCurrentVaxFraction(ic_vax_mix, non_ic_vax_mix, totalIc, totalNonIc);
 
-  const [pInfLo, pInfHi] = weightedIcInfectionRisk(event, prev, ic_mask_mix, {
+  const [pInfLo, pInfHi] = weightedMaskInfectionRisk(event, prev, ic_mask_mix, {
     sourceEmissionFactor: srcEmit, currentVaxFraction: curVaxFrac,
   });
 
@@ -402,15 +447,29 @@ export function aggregateEventRisk(event, prev, {
     }
   }
 
-  const [pInfNonIcLo, pInfNonIcHi] = weightedIcInfectionRisk(
+  const [pInfNonIcLo, pInfNonIcHi] = weightedMaskInfectionRisk(
     event, prev, non_ic_mask_mix, {
       hybrid_immunity: HYBRID_IMMUNITY_NON_IC,
       sourceEmissionFactor: srcEmit, currentVaxFraction: curVaxFrac,
     });
-  const wHospNonIc = Object.entries(non_ic_vax_mix).reduce(
+
+  // Age-weighted non-IC outcome rates. Base rates are for 18-39;
+  // age multipliers scale them for older attendees.
+  const baseHospNonIc = Object.entries(non_ic_vax_mix).reduce(
     (s, [v, w]) => s + w * P_HOSP_GIVEN_INFECTION_NON_IC[v], 0);
-  const wLcNonIc = Object.entries(non_ic_vax_mix).reduce(
+  const baseLcNonIc = Object.entries(non_ic_vax_mix).reduce(
     (s, [v, w]) => s + w * P_LONG_COVID_PER_INFECTION_NON_IC[v], 0);
+
+  let ageHospW = 0, ageLcW = 0, nonIcFracSum = 0;
+  for (const [band, share] of Object.entries(age_distribution)) {
+    const nonIcFrac = share * (1 - (IC_PREVALENCE_BY_AGE[band] || 0) * self_selection);
+    ageHospW += nonIcFrac * NON_IC_HOSP_AGE_MULTIPLIER[band];
+    ageLcW += nonIcFrac * NON_IC_LC_AGE_MULTIPLIER[band];
+    nonIcFracSum += nonIcFrac;
+  }
+  const wHospNonIc = baseHospNonIc * (nonIcFracSum > 0 ? ageHospW / nonIcFracSum : 1);
+  const wLcNonIc = baseLcNonIc * (nonIcFracSum > 0 ? ageLcW / nonIcFracSum : 1);
+
   const expInfNonIc = [totalNonIc * pInfNonIcLo, totalNonIc * pInfNonIcHi];
   const expHospNonIc = [expInfNonIc[0] * wHospNonIc, expInfNonIc[1] * wHospNonIc];
   const expLcNonIc = [expInfNonIc[0] * wLcNonIc, expInfNonIc[1] * wLcNonIc];
@@ -450,6 +509,18 @@ export function fmtProb(p) {
   return `${(p * 100).toFixed(2)}%`;
 }
 
+// Format p using a specific scale so both ends of a range share the same unit.
+function fmtProbAs(p, scale, suffix) {
+  if (p <= 0) return "0";
+  return `${(p * scale).toFixed(2)} ${suffix}`;
+}
+
 export function fmtRange([lo, hi]) {
-  return `${fmtProb(lo)} – ${fmtProb(hi)}`;
+  if (lo <= 0 && hi <= 0) return "0 – 0";
+  // Use hi (the larger value) to pick a consistent unit for both ends.
+  const ref = Math.max(lo, hi);
+  if (ref < 1e-6) return `${fmtProbAs(lo, 1e9, "per billion")} – ${fmtProbAs(hi, 1e9, "per billion")}`;
+  if (ref < 1e-4) return `${fmtProbAs(lo, 1e6, "per million")} – ${fmtProbAs(hi, 1e6, "per million")}`;
+  if (ref < 1e-2) return `${fmtProbAs(lo, 1e4, "per 10,000")} – ${fmtProbAs(hi, 1e4, "per 10,000")}`;
+  return `${(lo * 100).toFixed(2)}% – ${(hi * 100).toFixed(2)}%`;
 }

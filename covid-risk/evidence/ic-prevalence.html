@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>IC prevalence and severity mix - COVID risk model evidence</title>
+  <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+  <header>
+    <h1><a href="../index.html">COVID event risk calculator</a></h1>
+    <p class="subtitle">Evidence and methodology for model inputs</p>
+  </header>
+
+  <main class="evidence">
+    <article>
+      <h2>IC prevalence by age and severity mix</h2>
+
+      <h3>How it affects the model</h3>
+      <p>These two parameters determine <strong>how many</strong> IC
+        attendees are expected at the event and <strong>how sick</strong>
+        they are. The age-specific IC prevalence is combined with the
+        event&rsquo;s age distribution and self-selection factor to
+        estimate the number of IC attendees. The severity mix then
+        allocates those IC attendees across severe, moderate, and mild
+        tiers, which have different hospitalization and long-COVID rates
+        per infection.</p>
+
+      <h3>IC prevalence by age</h3>
+
+      <h4>Source: Martinson et al. 2024 (JAMA)</h4>
+      <p><a href="https://jamanetwork.com/journals/jama/fullarticle/2815274">Martinson
+        et al. (2024)</a> estimated the prevalence of immunosuppression
+        among US adults using the 2021 National Health Interview Survey
+        (NHIS), a nationally representative sample of 29,164 adults
+        (2,123 with immunosuppression). Overall prevalence:
+        <strong>6.6%</strong> (95% CI: 6.2&ndash;6.9%).</p>
+      <table class="grid">
+        <thead><tr><th>Age (NHIS)</th><th>Prevalence</th><th>95% CI</th><th>Model band</th><th>Model value</th></tr></thead>
+        <tbody>
+          <tr><td>18&ndash;29</td><td>3.3%</td><td>2.8&ndash;4.0%</td><td rowspan="2">18&ndash;39: 3.9%</td><td rowspan="2">avg of bands</td></tr>
+          <tr><td>30&ndash;39</td><td>4.5%</td><td>3.8&ndash;5.2%</td></tr>
+          <tr><td>40&ndash;49</td><td>6.6%</td><td>5.8&ndash;7.4%</td><td rowspan="2">40&ndash;59: 7.6%</td><td rowspan="2">avg of bands</td></tr>
+          <tr><td>50&ndash;59</td><td>8.7%</td><td>7.8&ndash;9.6%</td></tr>
+          <tr><td>60&ndash;69</td><td>9.5%</td><td>8.6&ndash;10.5%</td><td>60&ndash;69: 9.5%</td><td>direct</td></tr>
+          <tr><td>70&ndash;79</td><td>8.9%</td><td>7.9&ndash;10.0%</td><td rowspan="2">70+: 7.8%</td><td rowspan="2">avg of bands</td></tr>
+          <tr><td>&ge;80</td><td>6.6%</td><td>5.4&ndash;8.1%</td></tr>
+        </tbody>
+      </table>
+      <p>The model values match Martinson almost exactly. Prevalence
+        peaks at 60&ndash;69 (9.5%) and declines in the oldest age band
+        — likely because some immunosuppressive conditions (cancer,
+        autoimmune disease) are treated less aggressively in the very
+        elderly.</p>
+
+      <h4>Key context</h4>
+      <ul>
+        <li>The 6.6% prevalence is <strong>more than double</strong> the
+          earlier widely cited 2.7% estimate from 2013 NHIS data
+          (<a href="https://jamanetwork.com/journals/jama/fullarticle/2572798">Harpaz
+          et al. 2016</a>). The increase reflects the growing use of
+          immunosuppressive medications for autoimmune diseases, not a
+          true increase in immunodeficiency.</li>
+        <li>The NHIS uses <strong>self-report</strong>: &ldquo;Has a
+          doctor ever told you that you have a weakened immune
+          system?&rdquo; plus questions about immunosuppressive
+          medications. This is broad and may include people with mild
+          immunocompromise (e.g., low-dose methotrexate for
+          rheumatoid arthritis).</li>
+        <li>Prevalence is higher in women (7.9%) than men (5.2%),
+          driven by higher autoimmune disease rates in women.</li>
+      </ul>
+
+      <h3>IC severity mix</h3>
+      <p><strong>Default:</strong> 5% severe, 20% moderate, 75% mild.</p>
+      <p>No published source directly gives a severe/moderate/mild
+        breakdown of the IC population using these specific tiers.
+        The model&rsquo;s tiers are defined by COVID-specific
+        hospitalization risk, mapped from
+        <a href="hosp-given-infection.html">INFORM study aIRRs</a>:</p>
+      <table class="grid">
+        <thead><tr><th>Tier</th><th>INFORM aIRR</th><th>Conditions</th></tr></thead>
+        <tbody>
+          <tr><td>Severe</td><td>10&ndash;14&times;</td><td>Organ transplant, stem cell transplant
+            (&le;2yr), active hematological malignancy, severe primary
+            immunodeficiency</td></tr>
+          <tr><td>Moderate</td><td>4&ndash;6&times;</td><td>ESKD, autoimmune on strong
+            immunosuppressants (biologics, high-dose DMARDs), primary
+            immunodeficiency, unsuppressed HIV</td></tr>
+          <tr><td>Mild</td><td>~1.4&times;</td><td>Solid tumor survivors (&le;5yr),
+            chronic corticosteroids, mild immunosuppressive therapy,
+            virally suppressed HIV</td></tr>
+        </tbody>
+      </table>
+
+      <h4>Bottom-up estimation from condition prevalence</h4>
+      <p>The severity mix is estimated by counting the US population
+        with each condition and assigning them to the appropriate
+        tier:</p>
+      <table class="grid">
+        <thead><tr><th>Condition</th><th>Estimated US count</th><th>Tier</th><th>Source</th></tr></thead>
+        <tbody>
+          <tr><td>Organ transplant recipients</td><td>~400K</td><td>Severe</td>
+            <td><a href="https://unos.org/media-resources/releases/u-s-surpassed-48000-organ-transplants-in-2024/">UNOS 2024</a>: 48K/yr</td></tr>
+          <tr><td>Stem cell transplant (&le;2yr)</td><td>~45K</td><td>Severe</td>
+            <td>~22K/yr &times; 2</td></tr>
+          <tr><td>Active hematological malignancy</td><td>~300K</td><td>Severe</td>
+            <td>~180K new/yr, ~1.5yr avg treatment</td></tr>
+          <tr><td>Severe primary immunodeficiency</td><td>~30K</td><td>Severe</td>
+            <td><a href="https://primaryimmune.org">IDF</a>/USIDNET</td></tr>
+          <tr><td>ESKD</td><td>~808K</td><td>Moderate</td>
+            <td><a href="https://usrds-adr.niddk.nih.gov/2024/end-stage-renal-disease/1-incidence-prevalence-patient-characteristics-and-treatment-modalities">USRDS 2024</a></td></tr>
+          <tr><td>Autoimmune on strong immunosuppressants</td><td>~1.8M</td><td>Moderate</td>
+            <td>Biologics, high-dose DMARDs</td></tr>
+          <tr><td>Primary immunodeficiency (any)</td><td>~150K</td><td>Moderate</td>
+            <td>Broader than severe PID</td></tr>
+          <tr><td>HIV (not virally suppressed)</td><td>~516K</td><td>Moderate</td>
+            <td><a href="https://www.cdc.gov/hiv/data-research/facts-stats/index.html">CDC 2022</a>: 1.2M &times; 43%</td></tr>
+          <tr><td>Solid tumor survivors (&le;5yr)</td><td>~7M</td><td>Mild</td>
+            <td><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC12223361/">ACS 2025</a>: 18.6M total</td></tr>
+          <tr><td>Chronic corticosteroids</td><td>~2M</td><td>Mild</td>
+            <td>Moderate-dose, not for autoimmune</td></tr>
+          <tr><td>Mild immunosuppressive therapy</td><td>~2.5M</td><td>Mild</td>
+            <td>Low-dose methotrexate, mild DMARDs</td></tr>
+          <tr><td>HIV (virally suppressed)</td><td>~684K</td><td>Mild</td>
+            <td>CDC: 1.2M &times; 57%</td></tr>
+        </tbody>
+      </table>
+      <p>This gives roughly <strong>775K severe (4%), 3.3M moderate
+        (18%), 14.7M mild (78%)</strong> &mdash; a population dominated
+        by mildly immunocompromised individuals. The model rounds to
+        <strong>5% / 20% / 75%</strong>.</p>
+
+      <h4>Cross-check against INFORM</h4>
+      <p>The
+        <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10730312/">INFORM
+        study</a> (Quint et al. 2023) found an overall aIRR of
+        <strong>2.04</strong> (1.95&ndash;2.14) for IC vs non-IC
+        hospitalization. The blended aIRR implied by the severity mix
+        provides a consistency check:</p>
+      <table class="grid">
+        <thead><tr><th>Severity mix</th><th>Blended aIRR</th><th>vs INFORM 2.04</th></tr></thead>
+        <tbody>
+          <tr><td>Old model (22/55/23)</td><td>5.6&times;</td><td>2.7&times; too high</td></tr>
+          <tr><td>Data-derived (4/18/78)</td><td>2.5&times;</td><td>close</td></tr>
+          <tr><td>Model (5/20/75)</td><td>2.6&times;</td><td>close</td></tr>
+        </tbody>
+      </table>
+      <p>The remaining gap (2.6&times; vs 2.04&times;) may reflect that
+        the event population skews younger than the INFORM all-ages
+        cohort, or that the condition-count estimates above slightly
+        overweight moderate conditions. The match is reasonable given
+        the uncertainties.</p>
+
+      <h3>Limitations</h3>
+      <ul>
+        <li><strong>Self-report definition.</strong> The Martinson
+          prevalence (6.6%) is based on self-report, which may include
+          people whose immunosuppression is clinically negligible. The
+          INFORM study used clinical records and found 3.9% IC
+          prevalence in England. The US self-report rate is higher
+          partly because more Americans take immunosuppressive
+          medications for common conditions.</li>
+        <li><strong>Severity tiers are model-specific.</strong> No
+          published source classifies IC individuals into these exact
+          three tiers. The mapping from conditions to tiers involves
+          judgment calls, especially for moderate vs mild (e.g., where
+          to place someone on moderate-dose methotrexate).</li>
+        <li><strong>Condition counts are approximate.</strong> Several
+          estimates (autoimmune on strong immunosuppressants, chronic
+          corticosteroids) are rough order-of-magnitude figures, not
+          precise counts from a single authoritative source.</li>
+        <li><strong>Event self-selection may shift the mix.</strong>
+          IC individuals who attend events may not be representative
+          of the IC population. Very severely IC people may avoid
+          events entirely (captured by the self-selection factor), while
+          mildly IC people may not even identify as IC. The mix at any
+          specific event depends on the community.</li>
+        <li><strong>The mix changes with age.</strong> Older IC
+          individuals are more likely to have cancer or ESKD (moderate
+          to severe), while younger IC individuals are more likely to
+          have autoimmune conditions on mild therapy. The model uses a
+          single mix for all ages.</li>
+      </ul>
+
+      <h3>Sources</h3>
+      <ul>
+        <li><a href="https://jamanetwork.com/journals/jama/fullarticle/2815274">Martinson
+          et al. (2024)</a> &mdash; IC prevalence by age, 2021 NHIS
+          (JAMA)</li>
+        <li><a href="https://jamanetwork.com/journals/jama/fullarticle/2572798">Harpaz
+          et al. (2016)</a> &mdash; IC prevalence, 2013 NHIS (JAMA)</li>
+        <li><a href="https://wwwnc.cdc.gov/eid/article/26/8/19-1493_article">Harpaz
+          et al. (2020)</a> &mdash; IC condition breakdown, MarketScan
+          (CDC EID)</li>
+        <li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10730312/">Quint
+          et al. (2023)</a> &mdash; INFORM study, IC hospitalization
+          aIRRs (Lancet Regional Health &ndash; Europe)</li>
+        <li><a href="https://usrds-adr.niddk.nih.gov/2024/end-stage-renal-disease/1-incidence-prevalence-patient-characteristics-and-treatment-modalities">USRDS
+          (2024)</a> &mdash; ESKD prevalence</li>
+        <li><a href="https://www.cdc.gov/hiv/data-research/facts-stats/index.html">CDC
+          HIV Statistics</a> &mdash; People living with HIV</li>
+        <li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC12223361/">Wagle
+          et al. (2025)</a> &mdash; Cancer treatment and survivorship
+          statistics (CA: A Cancer Journal for Clinicians)</li>
+        <li><a href="https://unos.org/media-resources/releases/u-s-surpassed-48000-organ-transplants-in-2024/">UNOS
+          (2024)</a> &mdash; Organ transplant statistics</li>
+      </ul>
+    </article>
+  </main>
+</body>
+</html>

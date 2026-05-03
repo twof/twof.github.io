@@ -1,0 +1,299 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Hospitalization per infection - COVID risk model evidence</title>
+  <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+  <header>
+    <h1><a href="../index.html">COVID event risk calculator</a></h1>
+    <p class="subtitle">Evidence and methodology for model inputs</p>
+  </header>
+
+  <main class="evidence">
+    <article>
+      <h2>P(hospitalization | infection)</h2>
+      <p>The model uses separate hospitalization-per-infection tables for
+        IC attendees (stratified by severity and vaccination status) and
+        non-IC attendees (stratified by vaccination status only).</p>
+
+      <h3>How it affects the model</h3>
+      <p>These values convert expected infections into expected
+        hospitalizations. They are applied after the Wells-Riley infection
+        probability is computed, so they do not affect the infection
+        estimate itself &mdash; only the downstream severity
+        outcomes.</p>
+
+      <h3>Deriving the baseline: non-IC IHR</h3>
+
+      <h4>CDC burden estimates (2024&ndash;2025 season)</h4>
+      <p>The CDC estimates ~14.1&ndash;20.7M symptomatic illnesses and
+        ~390&ndash;550K hospitalizations for the 2024&ndash;2025 season,
+        giving a symptomatic IHR of <strong>~2.7%</strong> across all
+        ages. After adjusting for 30&ndash;50% asymptomatic infections
+        (see <a href="community-infectious.html">community infectious
+        evidence</a>), the all-infection IHR is
+        <strong>~1.3&ndash;1.9%</strong>.</p>
+      <p>However, hospitalizations are heavily concentrated in older
+        adults. CDC COVID-NET data for 2024&ndash;2025 shows
+        hospitalization rates per 100K of ~10 for ages 18&ndash;49 vs
+        ~300+ for ages 75+. For this event&rsquo;s young-skewing
+        demographics (90% under 60), the age-adjusted non-IC IHR is
+        substantially lower than the population average.</p>
+
+      <h4>Vaccine effectiveness against hospitalization</h4>
+      <p>CDC IVY Network data (September 2024&ndash;April 2025) from
+        <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC12424867/">Surie
+        et al. (2025)</a>:</p>
+      <table class="grid">
+        <thead><tr><th>Population</th><th>VE against hospitalization</th></tr></thead>
+        <tbody>
+          <tr><td>Immunocompetent adults &ge;18</td><td>45&ndash;46%</td></tr>
+          <tr><td>Immunocompromised adults &ge;65</td><td>36&ndash;40%</td></tr>
+        </tbody>
+      </table>
+
+      <h4>Non-IC model values</h4>
+      <p>The 18&ndash;49 all-vaccination-status IHR is ~0.32%. Decomposing
+        by vaccination status using VE against hospitalization (45%
+        current-season, ~15% older vaccination) and adjusting for
+        &ldquo;for COVID&rdquo; vs &ldquo;with COVID&rdquo; admissions
+        (~65% primary diagnosis) gives:</p>
+      <table class="grid">
+        <thead><tr><th>Vaccination status</th><th>P(hosp | infection)</th><th>Derivation</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>Current-season vax</td>
+            <td>0.10%</td>
+            <td>0.27% &times; (1 &minus; 0.45) &times; 0.65 &asymp; 0.10%</td>
+          </tr>
+          <tr>
+            <td>Older vaccination</td>
+            <td>0.15%</td>
+            <td>0.27% &times; (1 &minus; 0.15) &times; 0.65 &asymp; 0.15%</td>
+          </tr>
+          <tr>
+            <td>Unvaccinated</td>
+            <td>0.30%</td>
+            <td>0.27% &times; 0.65, rounded up to 0.30% as conservative
+              estimate for fully unvaccinated.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>Age adjustment for non-IC rates</h3>
+      <p>The non-IC base rates above are calibrated for 18&ndash;39 year
+        olds. Hospitalization risk per infection increases steeply with
+        age. The model applies age-specific multipliers derived from
+        log-linear interpolation of two data sources:</p>
+
+      <h4>Seroprevalence-based IHR by age</h4>
+      <p><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC11736415/">Bajema
+        et al. (2025)</a> used seroprevalence data to estimate
+        infection-hospitalization ratios during the Omicron period
+        (Dec 2021&ndash;Jan 2022), controlling for undetected
+        infections:</p>
+      <table class="grid">
+        <thead><tr><th>Age</th><th>Infections per hospitalization</th><th>IHR</th></tr></thead>
+        <tbody>
+          <tr><td>18&ndash;49</td><td>119 (113&ndash;125)</td><td>0.84%</td></tr>
+          <tr><td>50&ndash;69</td><td>42 (39&ndash;45)</td><td>2.39%</td></tr>
+          <tr><td>&ge;70</td><td>10 (9&ndash;11)</td><td>10.0%</td></tr>
+        </tbody>
+      </table>
+
+      <h4>Cross-check: CDC COVID-NET population rates</h4>
+      <p><a href="https://www.cdc.gov/mmwr/volumes/73/wr/mm7339a2.htm">Havers
+        et al. (2024)</a> reported cumulative hospitalization rates per
+        100K for the 2023&ndash;2024 season:</p>
+      <table class="grid">
+        <thead><tr><th>Age</th><th>Rate/100K</th><th>Ratio to 18&ndash;49</th></tr></thead>
+        <tbody>
+          <tr><td>18&ndash;49</td><td>38.9</td><td>1.0&times;</td></tr>
+          <tr><td>50&ndash;64</td><td>113.1</td><td>2.9&times;</td></tr>
+          <tr><td>65&ndash;74</td><td>283.9</td><td>7.3&times;</td></tr>
+          <tr><td>&ge;75</td><td>936.4</td><td>24.1&times;</td></tr>
+        </tbody>
+      </table>
+      <p>These are population rates (not per-infection), but the ratios
+        are consistent with the seroprevalence-based IHR ratios.</p>
+
+      <h4>Model age multipliers</h4>
+      <p>The model&rsquo;s age bands (18&ndash;39, 40&ndash;59,
+        60&ndash;69, 70+) don&rsquo;t align with either source.
+        Multipliers are derived via log-linear interpolation of the
+        seroprevalence IHR at each band&rsquo;s midpoint:</p>
+      <table class="grid">
+        <thead><tr><th>Model band</th><th>Midpoint</th><th>Interpolated IHR</th><th>Multiplier</th></tr></thead>
+        <tbody>
+          <tr><td>18&ndash;39</td><td>28.5</td><td>0.84%</td><td>1.00&times;</td></tr>
+          <tr><td>40&ndash;59</td><td>49.5</td><td>1.60%</td><td>1.90&times;</td></tr>
+          <tr><td>60&ndash;69</td><td>64.5</td><td>3.39%</td><td>4.03&times;</td></tr>
+          <tr><td>70+</td><td>77.5</td><td>8.40%</td><td>10.0&times;</td></tr>
+        </tbody>
+      </table>
+
+      <h4>Infection rates are age-independent</h4>
+      <p>The seroprevalence study also reported infection-to-case ratios
+        of 2.2&ndash;3.7&times; across all adult age groups during
+        Omicron, confirming that susceptibility to infection does not
+        vary dramatically by age. The age effect is almost entirely in
+        severity, not in infection probability. This justifies applying
+        age multipliers to outcome rates rather than to the Wells-Riley
+        infection probability.</p>
+
+      <h3>IC hospitalization multipliers</h3>
+
+      <h4>INFORM study: IC hospitalization risk by condition</h4>
+      <p>The
+        <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10730312/">INFORM
+        study</a> (Quint et al. 2023) analyzed 12 million individuals in
+        England during 2022, providing age- and sex-adjusted
+        hospitalization incidence rate ratios (aIRR) for IC vs general
+        population. Among those with &ge;3 vaccine doses:</p>
+      <table class="grid">
+        <thead><tr><th>IC condition</th><th>aIRR for hospitalization</th><th>Model severity tier</th></tr></thead>
+        <tbody>
+          <tr><td>Stem cell transplant (&le;2yr)</td><td>14.2 (10.2&ndash;20.0)</td><td rowspan="4">Severe</td></tr>
+          <tr><td>Solid organ transplant (&le;5yr)</td><td>11.6 (10.1&ndash;13.3)</td></tr>
+          <tr><td>Active haematological malignancy</td><td>10.7 (9.7&ndash;11.8)</td></tr>
+          <tr><td>Mod-severe primary immunodeficiency</td><td>9.4 (6.5&ndash;13.6)</td></tr>
+          <tr><td>Immunosuppressive therapy</td><td>5.5 (4.9&ndash;6.2)</td><td rowspan="3">Moderate</td></tr>
+          <tr><td>Primary immunodeficiency (any)</td><td>5.5 (4.8&ndash;6.4)</td></tr>
+          <tr><td>End-stage kidney disease</td><td>3.8 (3.5&ndash;4.2)</td></tr>
+          <tr><td>Solid tumors (&le;5yr)</td><td>1.4 (1.4&ndash;1.5)</td><td rowspan="2">Mild</td></tr>
+          <tr><td>High-dose corticosteroids</td><td>1.4 (0.9&ndash;2.2)</td></tr>
+        </tbody>
+      </table>
+      <p>The
+        <a href="https://www.sciencedirect.com/science/article/pii/S016344532500026X">2023
+        INFORM update</a> (Quint et al. 2025) confirmed continued elevated
+        risk with an overall aIRR of <strong>2.04</strong>
+        (1.95&ndash;2.14) for IC hospitalization, despite high vaccination
+        rates (70% with &ge;4 doses).</p>
+
+      <h4>Mapping INFORM to model severity tiers</h4>
+      <p>The model groups IC conditions into three tiers with
+        representative multipliers derived from the INFORM aIRRs:</p>
+      <table class="grid">
+        <thead><tr><th>Severity</th><th>Representative aIRR</th><th>Conditions</th></tr></thead>
+        <tbody>
+          <tr><td>Severe (5%)</td><td>~10&ndash;14&times;</td><td>Transplant, active haematological
+            malignancy, severe primary immunodeficiency</td></tr>
+          <tr><td>Moderate (20%)</td><td>~4&ndash;6&times;</td><td>Immunosuppressive therapy, primary
+            immunodeficiency, ESKD</td></tr>
+          <tr><td>Mild (75%)</td><td>~1.4&times;</td><td>Solid tumors, high-dose
+            corticosteroids</td></tr>
+        </tbody>
+      </table>
+
+      <h4>IC model values</h4>
+      <p>The IC hospitalization table is derived by applying INFORM
+        severity-tier multipliers to the non-IC baseline, then adjusting
+        for IC-specific VE (~36&ndash;40% for current-season vaccine vs
+        45% for non-IC). Values are set between two anchors:</p>
+      <ul>
+        <li><strong>Lower anchor (INFORM, population-based):</strong>
+          non-IC baseline &times; aIRR. This uses all infections
+          (including undetected) as the denominator.</li>
+        <li><strong>Upper anchor (cancer cohort studies):</strong>
+          9&ndash;24% hospitalization among <em>detected</em> Omicron
+          cases in cancer patients, adjusted &divide;3 for undetected
+          infections &rarr; ~3&ndash;8%.</li>
+      </ul>
+      <p>The model values split the difference, leaning toward the
+        INFORM population-based estimates since they better match the
+        model&rsquo;s per-infection denominator:</p>
+      <table class="grid">
+        <thead><tr><th>Severity</th><th>vax+PrEP</th><th>vax only</th><th>old vax</th><th>none</th></tr></thead>
+        <tbody>
+          <tr><td>Severe</td><td>1.0%</td><td>3.0%</td><td>5.0%</td><td>8.0%</td></tr>
+          <tr><td>Moderate</td><td>0.4%</td><td>1.2%</td><td>2.0%</td><td>3.5%</td></tr>
+          <tr><td>Mild</td><td>0.15%</td><td>0.5%</td><td>0.8%</td><td>1.5%</td></tr>
+        </tbody>
+      </table>
+
+      <h4>Cross-check: model-implied IC IHR vs INFORM</h4>
+      <p>With the default IC vax mix (8% PrEP, 30% current vax, 62%
+        old vax) and severity mix (5/20/75%), the model produces a
+        blended IC IHR of <strong>~1.0%</strong>. The INFORM study found
+        IC individuals accounted for 3.9% of the population but 22% of
+        hospitalizations, implying an IC IHR roughly 5&ndash;6&times;
+        the population average. At a population IHR of ~1.5%, this gives
+        IC IHR &asymp; 7.5&ndash;9% for the all-ages INFORM cohort.
+        The model&rsquo;s 1.0% is much lower, which is expected because:
+        (a)&nbsp;this event&rsquo;s IC population skews younger and more
+        vaccinated than the INFORM all-ages cohort (median age ~60), and
+        (b)&nbsp;the corrected severity mix (5/20/75%) is dominated by
+        mildly IC individuals (see
+        <a href="ic-prevalence.html">IC prevalence evidence</a>), who
+        have near-baseline hospitalization rates.</p>
+
+      <h3>Limitations</h3>
+      <ul>
+        <li><strong>No direct measurement of P(hosp&nbsp;|&nbsp;infection)
+          for IC subgroups.</strong> The literature provides relative
+          risks (IC vs general population), not absolute
+          infection-to-hospitalization ratios by IC severity and
+          vaccination status. The model&rsquo;s values are derived by
+          combining the non-IC baseline with IC multipliers, which
+          compounds uncertainties from both.</li>
+        <li><strong>INFORM aIRRs are from England 2022&ndash;2023.</strong>
+          The UK NHS proactively vaccinates IC patients (70% with &ge;4
+          doses), so these ratios reflect a well-vaccinated IC cohort.
+          In the US, where IC vaccination rates are lower (~30% current
+          season), the unvaccinated IC risk may be underrepresented in
+          the multipliers.</li>
+        <li><strong>Three severity tiers are a coarse simplification.</strong>
+          The INFORM data shows a 10&times; difference between the
+          highest-risk (stem cell transplant, aIRR 14.2) and lowest-risk
+          (solid tumors, aIRR 1.4) IC conditions. Grouping them into
+          three buckets loses resolution.</li>
+        <li><strong>Vaccination effect on IC patients is uncertain.</strong>
+          VE against hospitalization in IC adults (36&ndash;40%) is
+          measured for IC as a group, not stratified by IC severity.
+          Severe IC conditions (transplant) may have much lower VE than
+          mild IC conditions (solid tumors).</li>
+        <li><strong>PrEP (Pemgarda) effectiveness data is very
+          limited.</strong> Only 48 patients in the largest real-world
+          study. The additional reduction factor for vax+PrEP is
+          estimated, not measured with precision.</li>
+      </ul>
+
+      <h3>Sources</h3>
+      <ul>
+        <li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC11736415/">Bajema
+          et al. (2025)</a> &mdash; Seroprevalence-based IHR by age,
+          Delta and Omicron (Open Forum Infectious Diseases)</li>
+        <li><a href="https://www.cdc.gov/covid/php/surveillance/burden-estimates.html">CDC
+          Preliminary COVID-19 Burden Estimates</a> &mdash; 2024&ndash;2025
+          season illness/hospitalization data</li>
+        <li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10730312/">Quint
+          et al. (2023)</a> &mdash; INFORM study, IC hospitalization aIRRs
+          by condition, England 2022 (Lancet Regional Health &ndash;
+          Europe)</li>
+        <li><a href="https://www.sciencedirect.com/science/article/pii/S016344532500026X">Quint
+          et al. (2025)</a> &mdash; INFORM 2023 update, continued elevated
+          IC risk (Journal of Infection)</li>
+        <li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC12424867/">Surie
+          et al. (2025)</a> &mdash; 2024&ndash;2025 VE against
+          hospitalization, IVY Network (PMC)</li>
+        <li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC11044684/">Bytyci
+          et al. (2024)</a> &mdash; IC breakthrough infection risk
+          systematic review (Immunity, Inflammation and Disease)</li>
+        <li><a href="https://www.cdc.gov/mmwr/volumes/74/wr/mm7406a1.htm">CDC
+          MMWR (2025)</a> &mdash; Interim 2024&ndash;2025 VE estimates,
+          VISION and IVY Networks</li>
+        <li><a href="https://www.cdc.gov/mmwr/volumes/73/wr/mm7339a2.htm">Havers
+          et al. (2024)</a> &mdash; COVID-NET 2023&ndash;2024
+          hospitalization rates by age (MMWR)</li>
+        <li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC12200237/">Desai
+          et al. (2025)</a> &mdash; COVID-19 hospitalization burden in
+          cancer patients, expert review (PMC)</li>
+      </ul>
+    </article>
+  </main>
+</body>
+</html>

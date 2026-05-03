@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Long COVID per infection - COVID risk model evidence</title>
+  <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+  <header>
+    <h1><a href="../index.html">COVID event risk calculator</a></h1>
+    <p class="subtitle">Evidence and methodology for model inputs</p>
+  </header>
+
+  <main class="evidence">
+    <article>
+      <h2>P(long COVID | infection)</h2>
+      <p>The model uses separate long-COVID tables for IC attendees
+        (stratified by severity and vaccination status) and non-IC
+        attendees (stratified by vaccination status only).</p>
+
+      <h3>Definition of long COVID</h3>
+      <p>The model uses the
+        <a href="https://www.nationalacademies.org/read/27768/chapter/4">2024
+        NASEM definition</a>:</p>
+      <blockquote>
+        <p>&ldquo;An infection-associated chronic condition that occurs
+          after SARS-CoV-2 infection and is present for at least
+          3&nbsp;months as a continuous, relapsing and remitting, or
+          progressive disease state that affects one or more organ
+          systems.&rdquo;</p>
+      </blockquote>
+      <p>Key features of this definition:</p>
+      <ul>
+        <li>Can follow asymptomatic, mild, or severe infection</li>
+        <li>Does not require laboratory confirmation of prior COVID-19</li>
+        <li>Can be delayed in onset for weeks or months after apparent
+          recovery</li>
+        <li>Ranges from mild to severe; can resolve over months or
+          persist for years</li>
+        <li>Intentionally inclusive (high sensitivity, lower
+          specificity)</li>
+      </ul>
+      <p>The
+        <a href="https://www.who.int/news-room/fact-sheets/detail/post-covid-19-condition-(long-covid)">WHO
+        definition</a> is similar: symptoms starting within 3&nbsp;months
+        of infection, lasting at least 2&nbsp;months.</p>
+      <p><strong>Important:</strong> published long-COVID prevalence
+        estimates vary enormously (2&ndash;35%) depending on which
+        definition is used, how symptoms are ascertained (self-report vs
+        clinical diagnosis), and the comparison group. The model
+        calibrates to the stricter end of the range (NASEM-type clinical
+        condition, not &ldquo;any persistent symptom&rdquo;).</p>
+
+      <h3>How it affects the model</h3>
+      <p>These values convert expected infections into expected
+        long-COVID cases. Like hospitalization rates, they are applied
+        after the Wells-Riley infection probability and do not affect the
+        infection estimate itself.</p>
+
+      <h3>Non-IC long-COVID rates</h3>
+
+      <h4>Omicron-era community cohort data</h4>
+      <p><a href="https://academic.oup.com/ofid/article/11/2/ofae039/7585852">Florea
+        et al. (2024)</a> followed a community-based prospective cohort
+        (not hospitalized) through the Omicron period:</p>
+      <table class="grid">
+        <thead><tr><th>Group</th><th>30-day symptoms</th><th>90-day symptoms</th><th>Severity reduction</th></tr></thead>
+        <tbody>
+          <tr><td>Vaccinated</td><td>24%</td><td>8%</td><td>&minus;2.7 points on 1&ndash;10 scale</td></tr>
+          <tr><td>Unvaccinated</td><td>38%</td><td>27%</td><td>(baseline)</td></tr>
+        </tbody>
+      </table>
+
+      <h4>Vaccination effect on long-COVID risk</h4>
+      <p><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC12644529/">Bouzid
+        et al. (2025)</a> meta-analyzed 31 Omicron-era studies:</p>
+      <table class="grid">
+        <thead><tr><th>Comparison</th><th>Pooled OR (95% CI)</th></tr></thead>
+        <tbody>
+          <tr><td>Any vaccination vs unvaccinated</td><td>0.77 (0.70&ndash;0.85)</td></tr>
+          <tr><td>Primary course vs unvaccinated</td><td>0.81 (0.79&ndash;0.83)</td></tr>
+          <tr><td>Booster vs unvaccinated</td><td>0.74 (0.63&ndash;0.86)</td></tr>
+          <tr><td>Booster vs primary course</td><td>0.77 (0.65&ndash;0.92)</td></tr>
+        </tbody>
+      </table>
+      <p>A separate meta-analysis found VE against long COVID of
+        <strong>~41%</strong> for &ge;1 dose
+        (<a href="https://www.sciencedirect.com/science/article/pii/S1198743X25003672">Goet
+        et al. 2025</a>).</p>
+
+      <h4>Calibrating to the NASEM definition</h4>
+      <p>The community cohort&rsquo;s 8% (vaccinated, 90 days) uses a
+        broad symptom survey. The NASEM definition is stricter
+        (clinically significant condition affecting organ systems, not
+        just &ldquo;any persistent symptom&rdquo;). Recent 2024 WHO/CDC
+        estimates place long COVID at <strong>2&ndash;7%</strong> of
+        infections in the current context of widespread hybrid immunity
+        and Omicron-lineage variants.</p>
+      <p>The model uses values at the lower-to-middle end of this range,
+        reflecting the stricter NASEM definition:</p>
+      <table class="grid">
+        <thead><tr><th>Vaccination status</th><th>P(long COVID | infection)</th><th>Basis</th></tr></thead>
+        <tbody>
+          <tr><td>Current-season vax</td><td>4%</td><td>~8% broad-symptom &times; ~50% NASEM
+            adjustment; consistent with 2&ndash;7% range</td></tr>
+          <tr><td>Older vaccination</td><td>6%</td><td>Waned VE; OR 0.77 vs booster</td></tr>
+          <tr><td>Unvaccinated</td><td>10%</td><td>~27% broad-symptom &times; ~40% NASEM
+            adjustment; upper end of range</td></tr>
+        </tbody>
+      </table>
+
+      <h3>IC long-COVID rates</h3>
+
+      <h4>The IC multiplier is smaller than for hospitalization</h4>
+      <p>Unlike hospitalization (where IC patients face 2&ndash;14&times;
+        elevated risk), the long-COVID multiplier for IC is modest.
+        <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC11390303/">Englesbe
+        et al. (2024)</a> studied PASC in solid organ transplant (SOT)
+        recipients using the National COVID Cohort Collaborative
+        (n&nbsp;=&nbsp;17,512 matched pairs):</p>
+      <table class="grid">
+        <thead><tr><th>Group</th><th>PASC prevalence</th><th>aOR vs non-IC</th></tr></thead>
+        <tbody>
+          <tr><td>SOT recipients</td><td>2.2%</td><td>1.48 (1.09&ndash;2.01)</td></tr>
+          <tr><td>Non-immunosuppressed</td><td>1.4%</td><td>(baseline)</td></tr>
+        </tbody>
+      </table>
+      <p>This <strong>~1.5&times;</strong> elevation is biologically
+        plausible: long COVID is partly driven by immune overactivation
+        and autoimmunity, mechanisms that IC patients may have
+        <em>less</em> of, partially offsetting their higher infection
+        severity and prolonged viral persistence.</p>
+
+      <h4>Mapping to IC severity tiers</h4>
+      <p>The 1.48&times; aOR is for transplant recipients (the
+        model&rsquo;s &ldquo;severe&rdquo; tier). The multiplier for
+        milder IC conditions is likely smaller. The model applies
+        graduated multipliers:</p>
+      <ul>
+        <li><strong>Severe IC</strong> (transplant, active hematological
+          malignancy): ~2.0&ndash;2.5&times; non-IC rates. Higher than
+          the SOT study&rsquo;s 1.48&times; to account for prolonged
+          viral shedding in the most immunosuppressed patients.</li>
+        <li><strong>Moderate IC</strong> (immunosuppressive therapy,
+          PID): ~1.5&ndash;2.0&times;</li>
+        <li><strong>Mild IC</strong> (solid tumors, corticosteroids):
+          ~1.25&ndash;1.5&times;</li>
+      </ul>
+
+      <h4>IC model values</h4>
+      <table class="grid">
+        <thead><tr><th>Severity</th><th>vax+PrEP</th><th>vax only</th><th>old vax</th><th>none</th></tr></thead>
+        <tbody>
+          <tr><td>Severe</td><td>8%</td><td>10%</td><td>15%</td><td>25%</td></tr>
+          <tr><td>Moderate</td><td>6%</td><td>8%</td><td>12%</td><td>20%</td></tr>
+          <tr><td>Mild</td><td>5%</td><td>6%</td><td>9%</td><td>15%</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Age adjustment for non-IC long-COVID rates</h3>
+      <p>Unlike hospitalization (which increases ~12&times; from youngest
+        to oldest adults), long-COVID risk has a much flatter age
+        gradient and peaks in middle age rather than the eldest.
+        <a href="https://meps.ahrq.gov/data_files/publications/st557/stat557.shtml">MEPS
+        Spring 2023 data</a> (among adults who ever had COVID-19):</p>
+      <table class="grid">
+        <thead><tr><th>Age</th><th>Long COVID prevalence</th><th>Ratio to 18&ndash;34</th><th>Model multiplier</th></tr></thead>
+        <tbody>
+          <tr><td>18&ndash;34</td><td>9.8%</td><td>1.0&times;</td><td rowspan="2">18&ndash;39: 1.0&times;</td></tr>
+          <tr><td>35&ndash;49</td><td>13.5%</td><td>1.4&times;</td></tr>
+          <tr><td>50&ndash;64</td><td>17.9%</td><td>1.8&times;</td><td>40&ndash;59: 1.6&times;</td></tr>
+          <tr><td>65+</td><td>14.7%</td><td>1.5&times;</td><td>60&ndash;69: 1.8&times;<br>70+: 1.5&times;</td></tr>
+        </tbody>
+      </table>
+      <p>The decline in the 65+ bracket is consistent with the
+        hypothesis that long COVID is partly driven by immune
+        overactivation, which older adults (and IC patients) may
+        mount less aggressively. The model applies these multipliers
+        to the non-IC base rates, which are calibrated for 18&ndash;39
+        year olds.</p>
+
+      <h3>Limitations</h3>
+      <ul>
+        <li><strong>Definition-dependent prevalence.</strong> Published
+          long-COVID rates range from 2% to 35% depending on the
+          definition, ascertainment method, and comparison group. The
+          model calibrates to the NASEM clinical definition, but this
+          involves a subjective adjustment from broad-symptom survey
+          data.</li>
+        <li><strong>Limited IC-specific data.</strong> The SOT PASC study
+          (aOR 1.48) is the best available IC-specific estimate, but it
+          covers all IC severity levels and uses a single transplant
+          cohort. Long-COVID rates may differ substantially for other IC
+          conditions (e.g., HIV, autoimmune disease).</li>
+        <li><strong>Evolving over time.</strong> Long-COVID rates have
+          declined with successive variants and increasing population
+          immunity. The 2024 estimate of 2&ndash;7% may continue
+          declining. The model&rsquo;s values reflect 2024&ndash;2025
+          Omicron-lineage data.</li>
+        <li><strong>No severity stratification within long COVID.</strong>
+          The model counts any NASEM-qualifying long COVID equally.
+          In reality, long COVID ranges from mild persistent fatigue
+          to severe multi-organ dysfunction. A more refined model would
+          weight by severity, but the data to do so is sparse.</li>
+        <li><strong>Vaccination timing matters.</strong> VE against long
+          COVID wanes similarly to VE against infection. The model uses
+          broad &ldquo;current&rdquo; vs &ldquo;old&rdquo; categories
+          rather than a continuous waning curve.</li>
+      </ul>
+
+      <h3>Sources</h3>
+      <ul>
+        <li><a href="https://www.nationalacademies.org/read/27768/chapter/4">NASEM
+          (2024)</a> &mdash; Long COVID definition (National
+          Academies)</li>
+        <li><a href="https://www.who.int/news-room/fact-sheets/detail/post-covid-19-condition-(long-covid)">WHO</a>
+          &mdash; Post COVID-19 condition fact sheet</li>
+        <li><a href="https://academic.oup.com/ofid/article/11/2/ofae039/7585852">Florea
+          et al. (2024)</a> &mdash; Community cohort, vaccinated vs
+          unvaccinated long-COVID rates (Open Forum Infectious
+          Diseases)</li>
+        <li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC12644529/">Bouzid
+          et al. (2025)</a> &mdash; Vaccination impact on long COVID
+          meta-analysis, 31 Omicron-era studies (Nature
+          Communications)</li>
+        <li><a href="https://www.sciencedirect.com/science/article/pii/S1198743X25003672">Goet
+          et al. (2025)</a> &mdash; VE against post-COVID condition,
+          systematic review and meta-analysis</li>
+        <li><a href="https://academic.oup.com/ofid/article/12/9/ofaf533/8244677">Mohandas
+          et al. (2025)</a> &mdash; Global long-COVID prevalence,
+          subtypes, and risk factors meta-analysis (Open Forum Infectious
+          Diseases)</li>
+        <li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC11390303/">Englesbe
+          et al. (2024)</a> &mdash; PASC in SOT recipients, National
+          COVID Cohort Collaborative (American Journal of
+          Transplantation)</li>
+        <li><a href="https://meps.ahrq.gov/data_files/publications/st557/stat557.shtml">MEPS
+          (2023)</a> &mdash; Long COVID prevalence by age, Spring 2023
+          (AHRQ Statistical Brief #557)</li>
+        <li><a href="https://www.cidrap.umn.edu/covid-19/long-covid-prevalence-may-vary-covid-19-variant-time-infection">CIDRAP
+          (2025)</a> &mdash; Long-COVID prevalence by variant and time
+          since infection</li>
+      </ul>
+    </article>
+  </main>
+</body>
+</html>

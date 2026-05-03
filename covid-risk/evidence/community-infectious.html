@@ -49,7 +49,7 @@
           undetectable by day 8&ndash;10
           (<a href="https://doi.org/10.1093/cid/ciac535">Boucau et al.
           2022</a>).</li>
-        <li><strong>IHR range:</strong> 1.5%&ndash;2.5%. This produces the
+        <li><strong>IHR range:</strong> 1.3%&ndash;1.9%. This produces the
           low/high bounds. A lower IHR implies more infections per
           hospitalization, yielding a higher prevalence estimate.</li>
       </ul>
@@ -108,10 +108,54 @@
           <tr><td>2025&ndash;2026 (thru Apr&nbsp;18)</td><td>3.7&ndash;11.9M</td><td>110&ndash;240K</td><td>~2.0&ndash;3.0%</td></tr>
         </tbody>
       </table>
-      <p>These IHRs are for <em>symptomatic</em> illnesses. Since
-        30&ndash;50% of infections are asymptomatic (and still contribute to
-        transmission), the all-infection IHR is lower. The model uses
-        1.5%&ndash;2.5% to capture this range.</p>
+      <p>These IHRs are for <em>symptomatic</em> illnesses. A substantial
+        fraction of SARS-CoV-2 infections are fully asymptomatic (and still
+        contribute to transmission but are not counted in the CDC illness
+        estimates). To convert to an all-infection IHR, we divide by
+        (1&nbsp;&minus;&nbsp;asymptomatic&nbsp;fraction).</p>
+
+      <h4>Asymptomatic fraction</h4>
+      <p>Two key sources bound the Omicron-era asymptomatic fraction:</p>
+      <table class="grid">
+        <thead><tr><th>Study</th><th>Design</th><th>Asymptomatic %</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9321237/">Ma
+              et al. (2022)</a></td>
+            <td>Meta-analysis, 8 studies, n=7,640</td>
+            <td>32.4% (95% CI: 25.3&ndash;39.5%)</td>
+            <td>Early Omicron (BA.1); 35.9% in populations with &ge;80% vax
+              coverage. High heterogeneity (I&sup2;&nbsp;=&nbsp;97.7%).</td>
+          </tr>
+          <tr>
+            <td><a href="https://doi.org/10.1038/s41598-025-28374-y">Choi
+              et al. (2025)</a></td>
+            <td>Mathematical model, South Korea national data</td>
+            <td>49.7% (vaccinated), 44.7% (unvaccinated)</td>
+            <td>Omicron era; progressive increase in asymptomatic fraction
+              from wild-type &rarr; Delta &rarr; Omicron.</td>
+          </tr>
+        </tbody>
+      </table>
+      <p>With near-universal hybrid immunity in 2026, the higher estimate
+        (~50%) is likely more representative of current conditions. The model
+        uses a 30&ndash;50% range to be conservative.</p>
+
+      <h4>Deriving the all-infection IHR</h4>
+      <p>Applying the asymptomatic adjustment to the CDC symptomatic IHR
+        of ~2.7%:</p>
+      <table class="grid">
+        <thead><tr><th>Asymptomatic fraction</th><th>Source</th><th>All-infection IHR</th></tr></thead>
+        <tbody>
+          <tr><td>32%</td><td>Ma et al. meta-analysis</td><td>2.7% &times; 0.68 = <strong>1.84%</strong></td></tr>
+          <tr><td>50%</td><td>Choi et al. 2025</td><td>2.7% &times; 0.50 = <strong>1.35%</strong></td></tr>
+        </tbody>
+      </table>
+      <p>The model uses <strong>1.3%&ndash;1.9%</strong>, which directly
+        spans the range derived from these two sources. The lower bound
+        (1.3%) corresponds to ~52% asymptomatic (Choi et al.); the upper
+        bound (1.9%) corresponds to ~30% asymptomatic (lower end of Ma
+        et al.).</p>
 
       <h4>SF vs national hospitalization rates</h4>
       <p>CDC COVID-NET data (which includes California as a surveillance
@@ -137,8 +181,9 @@
       <ul>
         <li><strong>IHR uncertainty dominates.</strong> The all-infection IHR
           depends on age distribution, vaccination rates, variant, and
-          evolving population immunity. The 1.5%&ndash;2.5% range is a rough
-          estimate.</li>
+          evolving population immunity. The 1.3%&ndash;1.9% range is derived
+          from the CDC symptomatic IHR adjusted by published asymptomatic
+          fractions, but both inputs carry uncertainty.</li>
         <li><strong>Small-number noise.</strong> SF has ~836K residents. At
           low prevalence, weekly admissions are in the single digits
           (0&ndash;8), so week-to-week variance is high. The 4-week average
@@ -166,6 +211,12 @@
           Preliminary COVID-19 Burden Estimates</a></li>
         <li><a href="https://data.cdc.gov/Public-Health-Surveillance/Weekly-Rates-of-Laboratory-Confirmed-COVID-19-Hosp/6jg4-xsqq">CDC
           COVID-NET Weekly Hospitalization Rates</a> (API)</li>
+        <li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9321237/">Ma
+          et al. (2022)</a> &mdash; Omicron asymptomatic fraction
+          meta-analysis (Viruses)</li>
+        <li><a href="https://doi.org/10.1038/s41598-025-28374-y">Choi
+          et al. (2025)</a> &mdash; Asymptomatic fraction by variant and
+          vaccination status (Scientific Reports)</li>
         <li><a href="https://data.wastewaterscan.org/tracker/">WastewaterSCAN
           Dashboard</a> (for directional trends)</li>
       </ul>
