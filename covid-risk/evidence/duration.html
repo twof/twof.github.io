@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Duration - COVID risk model evidence</title>
+  <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+  <header>
+    <h1><a href="../index.html">COVID event risk calculator</a></h1>
+    <p class="subtitle">Evidence and methodology for model inputs</p>
+  </header>
+
+  <main class="evidence">
+    <article>
+      <h2>Duration (hours)</h2>
+      <p><strong>Default value:</strong> 2.0 hours</p>
+
+      <h3>How it affects the model</h3>
+      <p>Duration enters the infection probability calculation in two ways:</p>
+      <ol>
+        <li><strong>Cumulative dose.</strong> The inhaled dose of infectious quanta scales
+          with time: <code>dose = concentration &times; breathing_rate &times;
+          duration</code>. Longer events mean more total virus inhaled.</li>
+        <li><strong>Transient concentration buildup.</strong> When an infectious person
+          enters a room, airborne virus concentration starts at zero and rises
+          toward a steady state. The model applies a correction factor that accounts
+          for this buildup:
+          <code>1 &minus; (1 &minus; e<sup>&minus;ACH&middot;T</sup>) / (ACH &middot; T)</code>,
+          where ACH is air changes per hour and T is the duration. For a 2-hour event
+          at ACH=3, this factor is ~0.83, meaning the actual dose is 83% of what
+          a steady-state assumption would predict. For short events, the correction
+          is larger (more time spent at below-steady-state concentrations).</li>
+      </ol>
+      <p>The infection probability follows the exponential dose-response:
+        <code>P = 1 &minus; e<sup>&minus;dose</sup></code>.
+        At the low per-person probabilities this model typically produces, risk
+        scales approximately linearly with duration. At higher probabilities, it
+        saturates toward 100%.</p>
+
+      <h3>Evidence</h3>
+
+      <h4>The exponential dose-response is validated for human coronavirus</h4>
+      <p><a href="https://doi.org/10.1111/risa.14178">Aganovic &amp; Kadric (2024)</a>
+        compared four dose-response models (exponential, Stirling approximated
+        &beta;-Poisson, exact &beta;-Poisson, and Laplace approximated &beta;-Poisson)
+        against human challenge data for HCoV-229E (a human coronavirus) and two
+        human rhinoviruses. For the coronavirus dataset, the exponential model
+        &mdash; the same <code>P = 1 &minus; e<sup>&minus;kd</sup></code> used
+        in the Wells-Riley framework and in this calculator &mdash; was the
+        best fitting model (k&nbsp;=&nbsp;0.054, AIC&nbsp;=&nbsp;37.64, rank&nbsp;1
+        of&nbsp;4).</p>
+      <p>Notably, the exponential model was <em>rejected</em> for the pooled
+        rhinovirus dataset, where the Laplace &beta;-Poisson fit better. This means
+        the exponential dose-response is not universal across respiratory viruses
+        &mdash; it matters that it was validated for a coronavirus specifically.</p>
+      <p>A <a href="https://doi.org/10.1111/risa.70200">2026 correction</a> to the
+        paper clarified the interpretation of the Laplace approximation method but
+        confirmed all numerical results and infection risk estimates are unchanged.</p>
+      <p><em>Caveat:</em> HCoV-229E is a common-cold coronavirus, not SARS-CoV-2. The
+        only human challenge study for SARS-CoV-2
+        (<a href="https://doi.org/10.1038/s41591-022-01780-9">Killingley et al. 2022</a>)
+        used intranasal inoculation, not aerosol exposure, so it does not directly
+        validate the airborne dose-response relationship.</p>
+
+      <h4>Measured SARS-CoV-2 emission rates produce plausible time-to-infection</h4>
+      <p><a href="https://doi.org/10.1038/s41598-023-47829-8">Alsved et al. (2023)</a>
+        performed the first quantification of infectious SARS-CoV-2 emission rates
+        from exhaled aerosols, measuring TCID<sub>50</sub> directly from the exhaled
+        breath of three infected individuals. Emission rates during singing ranged
+        from 4 to 127 TCID<sub>50</sub>/s; during talking, 3&ndash;4 TCID<sub>50</sub>/s;
+        during breathing, below detection.</p>
+      <p>Using these measured rates in a mass-balance indoor air model
+        (room 4&times;4&times;3&nbsp;m, inhalation rate 0.54&nbsp;m&sup3;/h), they
+        estimated time to inhale one infectious dose (ID<sub>50</sub>&nbsp;=&nbsp;10
+        TCID<sub>50</sub> from the Killingley human challenge study):</p>
+      <ul>
+        <li><strong>Transient scenario</strong> (infectious person just arrived):
+          6&ndash;47 min depending on the individual&rsquo;s emission rate</li>
+        <li><strong>Steady-state scenario</strong> (infectious person present for hours):
+          1&ndash;57 min</li>
+      </ul>
+      <p>The transient buildup model used in the paper is the same mass-balance
+        equation that this calculator&rsquo;s <code>transientDoseFactor</code>
+        implements. The inhalation rate of 0.54&nbsp;m&sup3;/h is consistent with
+        our default of 0.5&nbsp;m&sup3;/h.</p>
+
+      <h4>Duration curves in a comprehensive Wells-Riley model</h4>
+      <p><a href="https://doi.org/10.1016/j.buildenv.2022.109924">Aganovic et al. (2023)</a>
+        developed an advanced Wells-Riley model incorporating nine removal
+        mechanisms and variant-specific quanta emission rates. Their Figure&nbsp;4
+        shows infection probability as a function of exposure time (0&ndash;360 min)
+        for a classroom scenario (64&nbsp;m&sup2;, 3&nbsp;m height, 1 infected +
+        20 susceptible). Representative values for speaking with the Omicron variant
+        at 0.5&nbsp;ACH:</p>
+      <ul>
+        <li>60 min: ~3%</li>
+        <li>120 min: ~15%</li>
+        <li>180 min: ~23%</li>
+        <li>360 min: ~40%</li>
+      </ul>
+      <p>These curves follow the <code>1 &minus; e<sup>&minus;kt</sup></code> shape
+        that our model produces. The paper also confirmed a breathing rate of
+        0.52&nbsp;m&sup3;/h for resting and standing.</p>
+      <p>The same paper found that quanta emission rates in previous studies were
+        overestimated by up to 10&times; due to reliance on SARS-CoV-1 data and
+        assumptions, and derived revised values for SARS-CoV-2: 0.13&nbsp;quanta/h
+        for breathing and 3.8&nbsp;quanta/h for speaking (original strain), with an
+        Omicron variant multiplier of 11.7&times;.</p>
+
+      <h3>Limitations</h3>
+      <ul>
+        <li><strong>Removal mechanisms.</strong> Our transient dose factor uses only
+          ventilation (ACH) as the removal term. The Aganovic et al. model includes
+          nine terms (ventilation, deposition, viral inactivation, respiratory
+          absorption, UVGI, portable air cleaners, recirculated air filtration,
+          face mask filtration, and incomplete mixing). At ACH&nbsp;&ge;&nbsp;3,
+          ventilation dominates and the simplification is reasonable.</li>
+        <li><strong>Well-mixed assumption.</strong> The model assumes uniform
+          concentration throughout the room. At low ventilation rates
+          (&lt;2&nbsp;ACH), a two-zone model shows the single-zone approach
+          can underestimate risk by up to 15%. At higher ventilation rates
+          (&gt;6&nbsp;ACH), the difference is &lt;5%.</li>
+        <li><strong>Continuous exposure.</strong> The model assumes all attendees
+          are present for the full duration. In practice, people arrive and leave
+          at different times, and may step outside during the event.</li>
+      </ul>
+    </article>
+  </main>
+</body>
+</html>

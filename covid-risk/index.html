@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>COVID event risk calculator</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>COVID event risk calculator</h1>
+    <p class="subtitle">
+      Wells-Riley transmission model with IC-stratified outcomes.
+      Tune parameters on the left; outputs update live.
+      See <a href="README.md">README</a> for citations and assumptions.
+    </p>
+  </header>
+
+  <main>
+    <section id="controls" aria-label="Parameters">
+
+      <details open>
+        <summary>Event</summary>
+        <div class="field">
+          <label for="attendees"><a href="evidence/attendees.html">Attendees</a></label>
+          <input type="number" id="attendees" min="2" max="10000" step="1" value="100">
+        </div>
+        <div class="field">
+          <label for="duration_hours"><a href="evidence/duration.html">Duration (hours)</a></label>
+          <input type="number" id="duration_hours" min="0.1" max="24" step="0.1" value="2">
+        </div>
+        <div class="field">
+          <label for="room_volume_m3"><a href="evidence/room-volume.html">Room volume (m³)</a></label>
+          <input type="number" id="room_volume_m3" min="10" max="100000" step="10" value="3300">
+        </div>
+        <div class="field">
+          <label for="air_changes_per_hour"><a href="evidence/air-changes.html">Air changes per hour (ACH)</a></label>
+          <input type="number" id="air_changes_per_hour" min="0.1" max="30" step="0.1" value="3">
+        </div>
+        <div class="field">
+          <label for="breathing_rate_m3_per_hour"><a href="evidence/breathing-rate.html">Breathing rate (m³/hr)</a></label>
+          <input type="number" id="breathing_rate_m3_per_hour" min="0.1" max="5" step="0.1" value="0.5">
+        </div>
+        <div class="field slider">
+          <label for="months_since_vax"><a href="evidence/ve-infection.html">Avg. months since vaccination</a>
+            <output id="months_since_vax_out">9 mo (VE 11%)</output>
+          </label>
+          <input type="range" id="months_since_vax" min="0" max="12" step="1" value="9">
+        </div>
+      </details>
+
+      <details>
+        <summary>Attendee demographics</summary>
+        <fieldset class="mix">
+          <legend>Age distribution</legend>
+          <div class="field slider"><label for="age_18_39">18–39 <output id="age_18_39_pct">70% (70)</output></label>
+            <input type="range" id="age_18_39" min="0" max="1" step="0.01" value="0.70"></div>
+          <div class="field slider"><label for="age_40_59">40–59 <output id="age_40_59_pct">20% (20)</output></label>
+            <input type="range" id="age_40_59" min="0" max="1" step="0.01" value="0.20"></div>
+          <div class="field slider"><label for="age_60_69">60–69 <output id="age_60_69_pct">7% (7)</output></label>
+            <input type="range" id="age_60_69" min="0" max="1" step="0.01" value="0.07"></div>
+          <div class="field slider"><label for="age_70_plus">70+ <output id="age_70_plus_pct">3% (3)</output></label>
+            <input type="range" id="age_70_plus" min="0" max="1" step="0.01" value="0.03"></div>
+        </fieldset>
+      </details>
+
+      <details open>
+        <summary>Activity mix</summary>
+        <fieldset class="mix">
+          <legend><a href="evidence/activity-mix.html">Proportion of time in each activity</a></legend>
+          <div class="field slider"><label for="min_breathing">Quiet breathing / listening <output id="min_breathing_pct">64% (76 min)</output></label>
+            <input type="range" id="min_breathing" min="0" max="1" step="0.01" value="0.63"></div>
+          <div class="field slider"><label for="min_speaking">Normal speaking <output id="min_speaking_pct">20% (24 min)</output></label>
+            <input type="range" id="min_speaking" min="0" max="1" step="0.01" value="0.20"></div>
+          <div class="field slider"><label for="min_singing_loud">Singing / loud speech <output id="min_singing_loud_pct">4% (5 min)</output></label>
+            <input type="range" id="min_singing_loud" min="0" max="1" step="0.01" value="0.04"></div>
+          <div class="field slider"><label for="min_eating">Eating <output id="min_eating_pct">12% (15 min)</output></label>
+            <input type="range" id="min_eating" min="0" max="1" step="0.01" value="0.12"></div>
+        </fieldset>
+      </details>
+
+      <details open>
+        <summary>Prevalence</summary>
+        <p id="prevalence_live_note" class="live-note" style="display:none"></p>
+        <div class="field">
+          <label for="community_infectious_low"><a href="evidence/community-infectious.html">Community infectious</a> — low (fraction)</label>
+          <input type="number" id="community_infectious_low" min="0" max="0.1" step="0.0001" value="0.0004" readonly>
+        </div>
+        <div class="field">
+          <label for="community_infectious_high"><a href="evidence/community-infectious.html">Community infectious</a> — high (fraction)</label>
+          <input type="number" id="community_infectious_high" min="0" max="0.1" step="0.0001" value="0.0012" readonly>
+        </div>
+        <div class="field slider">
+          <label for="symptomatic_attendance"><a href="evidence/symptomatic-attendance.html">Symptomatic attendance probability</a>
+            <output id="symptomatic_attendance_out">0% (56% of infectious attend)</output>
+          </label>
+          <input type="range" id="symptomatic_attendance" min="0" max="1" step="0.01" value="0">
+        </div>
+      </details>
+
+      <details>
+        <summary>IC attendee assumptions</summary>
+        <div class="field slider">
+          <label for="self_selection"><a href="evidence/self-selection.html">IC self-selection factor</a>
+            <output id="self_selection_out">0.70</output>
+          </label>
+          <input type="range" id="self_selection" min="0" max="1.5" step="0.01" value="0.7">
+        </div>
+
+        <div class="field">
+          <label for="ic_preset">Preset</label>
+          <select id="ic_preset">
+            <option value="regimented">Regimented (specialist-guided)</option>
+            <option value="general">General IC distribution</option>
+            <option value="custom">Custom</option>
+          </select>
+        </div>
+
+        <fieldset class="mix">
+          <legend><a href="evidence/mask-protection.html">IC mask mix</a></legend>
+          <div class="field slider"><label for="ic_mask_n95_fit_tested">N95 fit-tested <output id="ic_mask_n95_fit_tested_pct">10%</output></label>
+            <input type="range" id="ic_mask_n95_fit_tested" min="0" max="1" step="0.01" value="0.10"></div>
+          <div class="field slider"><label for="ic_mask_n95_casual">N95 casual <output id="ic_mask_n95_casual_pct">25%</output></label>
+            <input type="range" id="ic_mask_n95_casual" min="0" max="1" step="0.01" value="0.25"></div>
+          <div class="field slider"><label for="ic_mask_kn95_typical">KN95 typical <output id="ic_mask_kn95_typical_pct">60%</output></label>
+            <input type="range" id="ic_mask_kn95_typical" min="0" max="1" step="0.01" value="0.60"></div>
+          <div class="field slider"><label for="ic_mask_surgical">Surgical <output id="ic_mask_surgical_pct">5%</output></label>
+            <input type="range" id="ic_mask_surgical" min="0" max="1" step="0.01" value="0.05"></div>
+          <div class="field slider"><label for="ic_mask_cloth">Cloth <output id="ic_mask_cloth_pct">0%</output></label>
+            <input type="range" id="ic_mask_cloth" min="0" max="1" step="0.01" value="0"></div>
+          <div class="field slider"><label for="ic_mask_none">None <output id="ic_mask_none_pct">0%</output></label>
+            <input type="range" id="ic_mask_none" min="0" max="1" step="0.01" value="0"></div>
+        </fieldset>
+
+        <fieldset class="mix">
+          <legend><a href="evidence/ic-vax-mix.html">IC vaccination / PrEP mix</a></legend>
+          <div class="field slider"><label for="ic_vax_prep">Current vax + Pemgarda (PrEP) <output id="ic_vax_prep_pct">8%</output></label>
+            <input type="range" id="ic_vax_prep" min="0" max="1" step="0.01" value="0.08"></div>
+          <div class="field slider"><label for="ic_vax_only">Current vax only <output id="ic_vax_only_pct">30%</output></label>
+            <input type="range" id="ic_vax_only" min="0" max="1" step="0.01" value="0.3"></div>
+          <div class="field slider"><label for="ic_vax_old">Old vax only <output id="ic_vax_old_pct">62%</output></label>
+            <input type="range" id="ic_vax_old" min="0" max="1" step="0.01" value="0.62"></div>
+          <div class="field slider"><label for="ic_vax_none">No vaccine <output id="ic_vax_none_pct">0%</output></label>
+            <input type="range" id="ic_vax_none" min="0" max="1" step="0.01" value="0"></div>
+        </fieldset>
+      </details>
+
+      <details>
+        <summary>Non-IC attendee assumptions</summary>
+        <fieldset class="mix">
+          <legend><a href="evidence/mask-protection.html">Non-IC mask mix</a></legend>
+          <div class="field slider"><label for="nic_mask_n95_fit_tested">N95 fit-tested <output id="nic_mask_n95_fit_tested_pct">0%</output></label>
+            <input type="range" id="nic_mask_n95_fit_tested" min="0" max="1" step="0.01" value="0"></div>
+          <div class="field slider"><label for="nic_mask_n95_casual">N95 casual <output id="nic_mask_n95_casual_pct">10%</output></label>
+            <input type="range" id="nic_mask_n95_casual" min="0" max="1" step="0.01" value="0.10"></div>
+          <div class="field slider"><label for="nic_mask_kn95_typical">KN95 typical <output id="nic_mask_kn95_typical_pct">65%</output></label>
+            <input type="range" id="nic_mask_kn95_typical" min="0" max="1" step="0.01" value="0.65"></div>
+          <div class="field slider"><label for="nic_mask_surgical">Surgical <output id="nic_mask_surgical_pct">25%</output></label>
+            <input type="range" id="nic_mask_surgical" min="0" max="1" step="0.01" value="0.25"></div>
+          <div class="field slider"><label for="nic_mask_cloth">Cloth <output id="nic_mask_cloth_pct">0%</output></label>
+            <input type="range" id="nic_mask_cloth" min="0" max="1" step="0.01" value="0"></div>
+          <div class="field slider"><label for="nic_mask_none">None <output id="nic_mask_none_pct">0%</output></label>
+            <input type="range" id="nic_mask_none" min="0" max="1" step="0.01" value="0"></div>
+        </fieldset>
+
+        <fieldset class="mix">
+          <legend>Non-IC vaccination mix</legend>
+          <div class="field slider"><label for="nic_vax_current">Current-season vax <output id="nic_vax_current_pct">25%</output></label>
+            <input type="range" id="nic_vax_current" min="0" max="1" step="0.01" value="0.25"></div>
+          <div class="field slider"><label for="nic_vax_old">Older vax only <output id="nic_vax_old_pct">75%</output></label>
+            <input type="range" id="nic_vax_old" min="0" max="1" step="0.01" value="0.75"></div>
+          <div class="field slider"><label for="nic_vax_none">No vaccine <output id="nic_vax_none_pct">0%</output></label>
+            <input type="range" id="nic_vax_none" min="0" max="1" step="0.01" value="0"></div>
+        </fieldset>
+      </details>
+
+      <div class="buttons">
+        <button type="button" id="reset_defaults">Reset to defaults</button>
+        <button type="button" id="copy_link">Copy shareable link</button>
+        <button type="button" id="save_baseline" class="secondary">Save as baseline</button>
+        <button type="button" id="clear_baseline" class="secondary" style="display:none">Clear baseline</button>
+      </div>
+
+    </section>
+
+    <section id="outputs" aria-label="Results">
+
+      <div class="output-group">
+        <h2>Per-event totals (all attendees)
+          <span class="hint" style="font-weight:normal; font-size:12px; display:block; margin-top:4px">
+            <a href="evidence/hosp-given-infection.html">Hospitalization</a>,
+            <a href="evidence/long-covid.html">long COVID</a>, and
+            <a href="evidence/hybrid-immunity.html">hybrid immunity</a> methodology
+          </span>
+        </h2>
+        <table class="grid" id="tbl_totals">
+          <thead>
+            <tr><th>Outcome</th><th>Expected count</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <div class="output-group">
+        <h2>Annual totals</h2>
+        <div class="field inline">
+          <label for="events_per_year">Events per year</label>
+          <input type="number" id="events_per_year" min="1" max="365" step="1" value="12">
+        </div>
+        <table class="grid" id="tbl_annual">
+          <thead><tr><th>Outcome</th><th>Expected per year</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <div class="output-group">
+        <h2><a href="evidence/ic-prevalence.html">IC attendees</a> at this event</h2>
+        <table class="kv">
+          <tr><td>Expected IC attendees</td><td id="out_ic_total"></td></tr>
+          <tr><td>· severe</td><td id="out_ic_severe"></td></tr>
+          <tr><td>· moderate</td><td id="out_ic_moderate"></td></tr>
+          <tr><td>· mild</td><td id="out_ic_mild"></td></tr>
+          <tr><td>Expected non-IC attendees</td><td id="out_non_ic_total"></td></tr>
+        </table>
+      </div>
+
+      <div class="output-group">
+        <h2>Per-event breakdown by IC status</h2>
+        <table class="grid" id="tbl_aggregate">
+          <thead>
+            <tr><th>Outcome</th><th>Expected count</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <div class="output-group">
+        <h2>P(infection) per event by your own mask</h2>
+        <table class="grid" id="tbl_p_inf_by_mask">
+          <thead><tr><th>Mask</th><th>Filtration</th><th>P(infection)</th></tr></thead>
+          <tbody></tbody>
+        </table>
+        <p class="hint">Single susceptible person. Includes <a href="evidence/hybrid-immunity.html">hybrid-immunity</a> reduction for non-IC (50%).
+          IC row uses IC hybrid-immunity (20%).</p>
+      </div>
+
+      <div class="output-group">
+        <h2>Emission & exposure</h2>
+        <table class="kv">
+          <tr><td>Quanta/hr (median)</td><td id="out_q_median"></td></tr>
+          <tr><td>Quanta/hr (lognormal mean) <em>← used for expected risk</em></td><td id="out_q_mean"></td></tr>
+          <tr><td>Quanta/hr (p90)</td><td id="out_q_p90"></td></tr>
+          <tr><td>Transient dose factor</td><td id="out_transient"></td></tr>
+          <tr><td>Effective attendee prevalence</td><td id="out_eff_prevalence"></td></tr>
+          <tr><td>Expected infectious attendees</td><td id="out_exp_inf_attendees"></td></tr>
+          <tr><td>Blended current-season vax fraction</td><td id="out_blended_vax_frac"></td></tr>
+          <tr><td>Vax prevalence factor</td><td id="out_peer_vax_prev"></td></tr>
+          <tr><td>Source control factor</td><td id="out_peer_mask_emit"></td></tr>
+        </table>
+      </div>
+
+    </section>
+  </main>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>

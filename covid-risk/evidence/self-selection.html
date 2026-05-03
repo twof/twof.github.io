@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>IC self-selection factor - COVID risk model evidence</title>
+  <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+  <header>
+    <h1><a href="../index.html">COVID event risk calculator</a></h1>
+    <p class="subtitle">Evidence and methodology for model inputs</p>
+  </header>
+
+  <main class="evidence">
+    <article>
+      <h2>IC self-selection factor</h2>
+      <p><strong>Default:</strong> 0.70 (immunocompromised people attend at
+        70% the rate of the general population).</p>
+
+      <h3>How it affects the model</h3>
+      <p>The model estimates expected IC attendees by multiplying the number
+        of total attendees by age-specific IC prevalence rates. The
+        self-selection factor then scales this down to account for the fact
+        that IC individuals are less likely to attend indoor events than
+        the general population &mdash; due to health limitations, medical
+        advice, or deliberate risk avoidance.</p>
+      <p>A factor of 1.0 means IC people attend at the same rate as
+        everyone else. A factor of 0.5 means they attend at half the rate.
+        This directly scales all IC-specific outputs (expected IC attendees,
+        IC infections, IC hospitalizations).</p>
+
+      <h3>Evidence</h3>
+
+      <h4>No direct measurement exists</h4>
+      <p>No peer-reviewed study directly measures the rate at which
+        immunocompromised people attend indoor social events compared to
+        the general population. The default of 0.70 is derived from
+        indirect proxies.</p>
+
+      <h4>Quality-of-life and social functioning proxies</h4>
+      <p>Several studies measure social participation limitations in IC
+        populations using validated instruments:</p>
+      <ul>
+        <li><strong>Cavallini et al. (2015)</strong> &mdash; integrative
+          review of quality of life in solid organ transplant (SOT)
+          recipients. SF-36 social functioning subscales show reduced
+          social participation, particularly in the first year
+          post-transplant and during active immunosuppressive
+          adjustment.</li>
+        <li><strong>Baumgartner et al. (2017)</strong> &mdash; quality of
+          life in common variable immunodeficiency (CVID) patients.
+          Documented reduced social functioning scores compared to
+          population norms.</li>
+        <li><strong>Heesen et al. (2022)</strong> &mdash; CoCo
+          longitudinal study of COVID-era behavior in chronically ill
+          populations. Found sustained avoidance of social gatherings
+          among immunocompromised individuals beyond what the general
+          population reported.</li>
+      </ul>
+
+      <h4>Estimates by IC severity</h4>
+      <p>Based on the proxy data, approximate attendance ratios relative
+        to the general population:</p>
+      <table class="grid">
+        <thead><tr><th>IC category</th><th>Attendance ratio</th><th>Examples</th></tr></thead>
+        <tbody>
+          <tr><td>Severely IC, active treatment</td><td>0.10&ndash;0.50</td>
+            <td>Chemotherapy, recent transplant, severe neutropenia</td></tr>
+          <tr><td>Severely IC, stable</td><td>0.50&ndash;0.85</td>
+            <td>Long-term transplant, controlled hematologic conditions</td></tr>
+          <tr><td>Moderately IC</td><td>0.85&ndash;0.95</td>
+            <td>Biologics (TNF inhibitors), well-controlled HIV</td></tr>
+          <tr><td>Mildly IC</td><td>0.95&ndash;1.00</td>
+            <td>Low-dose corticosteroids, mild primary immunodeficiency</td></tr>
+        </tbody>
+      </table>
+
+      <h4>Population-weighted estimate</h4>
+      <p>The model&rsquo;s IC severity mix is 22% severe, 55% moderate,
+        23% mild. Weighting the attendance ratios by severity gives a
+        <strong>pre-pandemic baseline of ~0.80&ndash;0.90</strong>.</p>
+      <p>COVID-era avoidance behavior adds an additional reduction.
+        Islam et al. (2021) documented sustained avoidance of social
+        gatherings among high-risk individuals. Applying a ~0.85&times;
+        COVID-era multiplier gives a <strong>current-era range of
+        ~0.50&ndash;0.85</strong>, with 0.70 as the midpoint.</p>
+
+      <h3>Limitations</h3>
+      <ul>
+        <li><strong>All estimates are indirect.</strong> No study has
+          directly measured IC attendance at events. The proxies
+          (SF-36 social functioning, IMET scores, behavioral surveys) were
+          designed to measure general social participation, not event
+          attendance specifically.</li>
+        <li><strong>Highly event-dependent.</strong> An IC person&rsquo;s
+          willingness to attend depends on the specific event: a small
+          outdoor gathering is very different from a large indoor
+          conference. The model applies a single factor regardless of event
+          characteristics.</li>
+        <li><strong>COVID-era behavior is still evolving.</strong> The
+          additional avoidance multiplier from the pandemic era may be
+          waning as COVID becomes endemic, or it may persist among the most
+          vulnerable. There is no current data on the trajectory.</li>
+        <li><strong>Selection bias in both directions.</strong> IC people
+          who do attend events may be the healthiest subset (survivor
+          bias), meaning the ones present are at lower IC-related risk
+          than the IC population average. Conversely, the most severely IC
+          individuals who avoid events entirely are not captured by the
+          model at all.</li>
+      </ul>
+      <p>Given the substantial uncertainty, this parameter is left as a
+        tunable slider. The defensible range is <strong>0.50&ndash;0.85</strong>;
+        the default of 0.70 represents a middle estimate. Users who know
+        their event&rsquo;s specific IC community (e.g., a support group
+        for transplant recipients vs. a general tech conference) should
+        adjust accordingly.</p>
+    </article>
+  </main>
+</body>
+</html>

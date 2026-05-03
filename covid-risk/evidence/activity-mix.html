@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Activity mix - COVID risk model evidence</title>
+  <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+  <header>
+    <h1><a href="../index.html">COVID event risk calculator</a></h1>
+    <p class="subtitle">Evidence and methodology for model inputs</p>
+  </header>
+
+  <main class="evidence">
+    <article>
+      <h2>Activity mix</h2>
+      <p><strong>Default:</strong> 68% quiet breathing, 21% speaking, 3% singing/loud,
+        8% eating</p>
+
+      <h3>How it affects the model</h3>
+      <p>Different respiratory activities produce vastly different amounts of
+        infectious aerosol. The model assigns each activity a quanta emission rate
+        (infectious doses per hour) and computes a time-weighted average based on
+        the activity mix. Activities that produce more aerosol (singing, loud
+        speech) contribute disproportionately to infection risk even if they
+        occupy a small fraction of event time.</p>
+      <p>The model uses a lognormal distribution for quanta rates, characterized
+        by a median and 90th percentile for each activity:</p>
+      <table class="grid">
+        <thead><tr><th>Activity</th><th>Median (q/hr)</th><th>P90 (q/hr)</th><th>Relative to breathing</th></tr></thead>
+        <tbody>
+          <tr><td>Quiet breathing</td><td>0.4</td><td>3.3</td><td>1&times;</td></tr>
+          <tr><td>Normal speaking</td><td>8.0</td><td>66.0</td><td>20&times;</td></tr>
+          <tr><td>Singing / loud speech</td><td>64.0</td><td>530.0</td><td>160&times;</td></tr>
+          <tr><td>Eating</td><td>2.0</td><td>16.5</td><td>5&times;</td></tr>
+        </tbody>
+      </table>
+      <p>No additional calibration factor is applied. Previous versions of
+        this model used an ad-hoc scaling factor to match observed infection
+        rates; this was removed so that each parameter stands on its own
+        evidence base.</p>
+
+      <h3>Evidence</h3>
+
+      <h4>Aerosol emission increases dramatically with vocalization</h4>
+      <p>The physical basis for activity-dependent emission is well-established.
+        Vocalization generates aerosol particles through vibration of the vocal
+        folds and turbulent airflow in the respiratory tract. Louder vocalization
+        and singing produce substantially more particles than quiet breathing.</p>
+      <p>A <a href="https://doi.org/10.1016/j.envint.2020.105794">quantitative
+        microbial risk assessment</a> (Mikszewski et al. 2022) measured expelled
+        aerosol volumes over 20 minutes at 10<sup>8</sup> RNA copies/mL:</p>
+      <ul>
+        <li>Breathing: 44 picoliters</li>
+        <li>Speaking: 260&ndash;360 picoliters (~7&times; breathing)</li>
+        <li>Singing: 4,300 picoliters (~100&times; breathing)</li>
+        <li>Coughing: 47&ndash;4,900 picoliters (highly variable)</li>
+      </ul>
+      <p><a href="https://doi.org/10.1038/s41598-023-47829-8">Alsved et al. (2023)</a>
+        directly measured infectious SARS-CoV-2 emission from three individuals.
+        Emission rates during singing ranged from 4 to 127 TCID<sub>50</sub>/s;
+        during talking, 3&ndash;4 TCID<sub>50</sub>/s; during breathing, below
+        detection. The singing:talking ratio ranged from 1.3&times; to 32&times;
+        across individuals, reflecting enormous person-to-person variability.</p>
+
+      <h4>Quanta emission rates vary widely across studies</h4>
+      <p>The absolute quanta emission rates are highly uncertain, with roughly a
+        <strong>10&times; range</strong> across published estimates for any given
+        activity:</p>
+      <table class="grid">
+        <thead><tr><th>Activity</th><th>Buonanno 2020</th><th>Aganovic 2023</th><th>This model (median)</th></tr></thead>
+        <tbody>
+          <tr><td>Breathing</td><td>0.72 q/h</td><td>0.13 q/h</td><td>0.4 q/h</td></tr>
+          <tr><td>Speaking</td><td>9.7 q/h</td><td>3.8 q/h</td><td>8.0 q/h</td></tr>
+          <tr><td>Singing</td><td>~62 q/h</td><td>9.0 q/h</td><td>64.0 q/h</td></tr>
+        </tbody>
+      </table>
+      <p><a href="https://doi.org/10.1016/j.buildenv.2022.109924">Aganovic et al.
+        (2023)</a> found that previous estimates (including Buonanno 2020) were
+        &ldquo;overestimated even by factor 10 because of using data and
+        assumptions being based on SARS-CoV-1.&rdquo; Their revised values for
+        the original SARS-CoV-2 strain are considerably lower.</p>
+      <p>However, Omicron variants have higher intrinsic transmissibility. Aganovic
+        estimated a variant multiplier of 11.7&times; for Omicron, which would
+        bring their rates back up (e.g., speaking: 44.5&nbsp;q/h for Omicron vs
+        3.8 for original strain). The appropriate multiplier for current (2026)
+        variants in a population with widespread hybrid immunity is uncertain.</p>
+
+      <h4>Measurement methodology explains the 10&times; variation</h4>
+      <p><a href="https://doi.org/10.1016/j.jaerosci.2025.106619">Matvejeff &amp;
+        Tuhkuri (2025)</a> systematically reviewed 77 respiratory particle
+        measurement studies and found that methodological differences explain much
+        of the variation in published emission rates. Among the reviewed studies:</p>
+      <ul>
+        <li>Only <strong>14%</strong> measured or calculated particle losses</li>
+        <li>Only <strong>57%</strong> addressed sample dilution</li>
+        <li>Only <strong>46%</strong> reported whether particles were measured dry
+          or wet</li>
+        <li>Only <strong>52%</strong> of vocalization studies measured sound pressure
+          level</li>
+      </ul>
+      <p>Their own controlled measurements (single professional singer, calibrated
+        setup with loss correction) found speaking produced ~100&times; more
+        particles than breathing by count, and singing produced ~10&times; more
+        than speaking by mass &mdash; somewhat higher than our model&rsquo;s
+        singing:speaking ratio of 6.4&times;. However, this was sustained
+        phonation by a trained singer, not typical event conversation.</p>
+
+      <h4>Ratios between activities are more reliable than absolute rates</h4>
+      <p>While absolute quanta rates span an order of magnitude across studies,
+        the <strong>ratios between activities</strong> are more consistent:</p>
+      <ul>
+        <li>Speaking : breathing &asymp; <strong>10&ndash;30&times;</strong></li>
+        <li>Singing : speaking &asymp; <strong>2.5&ndash;10&times;</strong></li>
+        <li>Singing : breathing &asymp; <strong>25&ndash;100&times;</strong></li>
+      </ul>
+      <p>Our model&rsquo;s ratios (20&times;, 8&times;, 160&times;) are derived
+        from the central estimates across these studies. Since the activity mix
+        slider controls the
+        <em>proportions</em> of time in each activity, the ratios matter more
+        than the absolute rates for this parameter.</p>
+
+      <h4>Loudness is a major factor within vocal activities</h4>
+      <p><a href="https://doi.org/10.1021/acs.est.4c01717">Moseley et al. (2024)</a>
+        measured exhaled aerosol and CO<sub>2</sub> across activities in 15
+        participants and found that loudness dramatically affects emission within
+        vocal activities:</p>
+      <ul>
+        <li>Singing at 90&ndash;100&nbsp;dBA produced <strong>5&times; more
+          particles</strong> than speaking at 70&ndash;80&nbsp;dBA and
+          <strong>2.6&times; more</strong> than singing at 70&ndash;80&nbsp;dBA</li>
+        <li>Vigorous exercise produced ~5&times; the particles of breathing at
+          rest &mdash; comparable to conversational speaking</li>
+        <li>CO<sub>2</sub> was correlated with particle emission for
+          non-vocalization activities (r&nbsp;=&nbsp;0.81) but
+          <strong>poorly correlated during vocalization</strong>
+          (r&nbsp;=&nbsp;0.34), because vocal fold vibration produces particles
+          through a different mechanism than breathing</li>
+      </ul>
+      <p>This means the model&rsquo;s single &ldquo;singing/loud&rdquo; category
+        spans a wide range: quiet group singing at 70&ndash;80&nbsp;dBA might
+        warrant a lower proportion than loud projected singing at
+        90&ndash;100&nbsp;dBA.</p>
+
+      <h4>Superspreading events confirm the singing effect</h4>
+      <p>The
+        <a href="https://doi.org/10.1111/ina.12751">Skagit Valley Chorale
+        outbreak</a> (Miller et al. 2021) involved 53 infections among 61
+        choir members during a 2.5-hour rehearsal. Back-calculation from this
+        event yielded an estimated emission rate of ~970&nbsp;quanta/h during
+        singing &mdash; far higher than any forward-modeled estimate, but
+        consistent with a high-emitting individual in a prolonged singing
+        event.</p>
+
+      <h3>Limitations</h3>
+      <ul>
+        <li><strong>Eating has no direct quanta data.</strong> The eating rate
+          (2.0 median) is an assumption: mouth open, some conversation, but
+          primarily chewing. There are no published quanta emission measurements
+          specific to eating. The model separately accounts for mask removal
+          during eating &mdash; during the eating fraction of the event, both
+          source control and receptor mask protection are set to zero, so the
+          eating quanta rate reflects only the physical aerosol emission of the
+          activity.</li>
+        <li><strong>Person-to-person variability is enormous.</strong> Alsved et
+          al. found singing emission rates ranging from 4 to 127
+          TCID<sub>50</sub>/s across just three individuals &mdash; a 32&times;
+          range. The model uses population-average quanta rates and cannot capture
+          the impact of individual &ldquo;super-emitters.&rdquo;</li>
+        <li><strong>Loudness is not modeled separately.</strong> Speaking at
+          conversational volume produces far less aerosol than shouting or
+          projecting. The model uses a single &ldquo;speaking&rdquo; category
+          that represents a typical indoor event mix. A loud bar might warrant
+          using a higher speaking proportion or the singing/loud category.</li>
+      </ul>
+    </article>
+  </main>
+</body>
+</html>

@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Air changes per hour - COVID risk model evidence</title>
+  <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+  <header>
+    <h1><a href="../index.html">COVID event risk calculator</a></h1>
+    <p class="subtitle">Evidence and methodology for model inputs</p>
+  </header>
+
+  <main class="evidence">
+    <article>
+      <h2>Air changes per hour (ACH)</h2>
+      <p><strong>Default value:</strong> 3.0</p>
+
+      <h3>How it affects the model</h3>
+      <p>ACH enters the model in two places:</p>
+      <ol>
+        <li><strong>Steady-state concentration.</strong>
+          <code>C = q / (ACH &times; V)</code>. Higher ACH means more air
+          replacement, lower airborne quanta concentration, and lower inhaled dose.
+          At low infection probabilities, doubling ACH approximately halves the
+          risk.</li>
+        <li><strong>Transient buildup rate.</strong> The
+          <code>transientDoseFactor</code> depends on ACH &times; duration.
+          Higher ACH means concentration reaches steady state faster. At
+          ACH&nbsp;=&nbsp;3 and a 2-hour event, the transient correction is ~0.83
+          (concentration spends most of the event near steady state). At
+          ACH&nbsp;=&nbsp;0.5, the correction is ~0.54 (concentration is still
+          building throughout most of the event).</li>
+      </ol>
+      <p>Note that ACH and room volume jointly determine the total airflow
+        <code>Q = ACH &times; V</code> (m&sup3;/h). At steady state, infection
+        risk depends on Q &mdash; not on ACH or V independently. See the
+        <a href="room-volume.html">room volume</a> evidence page.</p>
+
+      <h3>Is the default of 3.0 ACH reasonable?</h3>
+      <p>The default of 3.0 represents <strong>moderate-to-good mechanical
+        ventilation</strong>. For context:</p>
+      <table class="grid">
+        <thead><tr><th>Setting</th><th>Typical ACH</th><th>Source</th></tr></thead>
+        <tbody>
+          <tr><td>Residences (US)</td><td>0.35</td><td>ASHRAE 62.2</td></tr>
+          <tr><td>Residences (Germany)</td><td>0.6</td><td>Meta-analysis below</td></tr>
+          <tr><td>COVID-19 outbreak venues (median)</td><td>0.5&ndash;0.7</td><td>Peng et al. 2022</td></tr>
+          <tr><td>Commercial buildings (minimum)</td><td>4</td><td>ASHRAE guidance</td></tr>
+          <tr><td>Hospitals</td><td>6&ndash;12</td><td>ASHRAE 170</td></tr>
+          <tr><td>Aircraft cabins</td><td>6+</td><td>Peng et al. 2022</td></tr>
+        </tbody>
+      </table>
+      <p><a href="https://doi.org/10.1016/j.buildenv.2022.109924">Aganovic et al. (2023)</a>
+        used 0.5&nbsp;ACH as &ldquo;normal ventilation&rdquo; (typical home
+        environment) and 3&nbsp;ACH as &ldquo;enhanced ventilation&rdquo; (hospital
+        areas and public buildings). Similarly,
+        <a href="https://doi.org/10.1038/s41598-023-47829-8">Alsved et al. (2023)</a>
+        compared 0.5 and 3&nbsp;ACH in their indoor air model.</p>
+      <p>Most documented COVID-19 outbreaks occurred in spaces with ACH well below 1
+        (<a href="https://doi.org/10.1021/acs.est.1c06531">Peng et al. 2022</a>,
+        Table&nbsp;1: Guangzhou restaurant 0.67, Skagit choir 0.70, call center 0.53).
+        A default of 3.0 therefore represents a <strong>better-than-typical</strong>
+        event venue, which is appropriate for a conservative risk estimate.</p>
+
+      <h3>Evidence for the ACH&ndash;risk relationship</h3>
+
+      <h4>Infection probability curves at different ACH values</h4>
+      <p><a href="https://doi.org/10.1016/j.buildenv.2022.109924">Aganovic et al. (2023)</a>
+        Figure&nbsp;5a shows infection probability over 0&ndash;360 min for Omicron
+        speaking at different ACH levels (64&nbsp;m&sup2; classroom, 1 infected):</p>
+      <table class="grid">
+        <thead><tr><th>ACH</th><th>Risk at 180 min</th><th>Risk at 360 min</th></tr></thead>
+        <tbody>
+          <tr><td>0.5</td><td>~23%</td><td>~40%</td></tr>
+          <tr><td>2.0</td><td>~12%</td><td>~20%</td></tr>
+          <tr><td>6.0</td><td>~7%</td><td>~12%</td></tr>
+          <tr><td>12.0</td><td>~4%</td><td>~7%</td></tr>
+        </tbody>
+      </table>
+      <p>The reduction from 0.5 to 2 ACH (4&times;) cuts risk roughly in half,
+        but going from 6 to 12 ACH (2&times;) only cuts it by about 40%. This
+        reflects the diminishing returns inherent in the exponential dose-response:
+        at low doses, risk is approximately proportional to 1/ACH, but at higher
+        doses the relationship saturates.</p>
+
+      <h4>Meta-analysis: ACH and airborne SARS-CoV-2 concentration</h4>
+      <p><a href="https://doi.org/10.1016/j.envint.2024.108660">A meta-analysis of
+        93 studies</a> covering hospitals and residences across 24 countries found
+        a negative correlation between ACH and airborne virus concentration.
+        Typical hospital ACH (6&ndash;16) was associated with significantly lower
+        virus positivity rates than residential ACH (0.35&ndash;0.6). Benefits
+        plateaued above ~8&nbsp;ACH &mdash; further increases produced minimal
+        additional concentration reduction.</p>
+
+      <h4>CFD study: diminishing returns at higher ACH</h4>
+      <p><a href="https://doi.org/10.1016/j.heliyon.2024.e35092">A 2024 CFD study</a>
+        modeled a 140&nbsp;m&sup3; classroom at 2, 4, 6, and 8&nbsp;ACH.
+        Increasing ACH from 2 to 8 reduced particle inhalation by ~70%, but the
+        gains flattened at higher values (steeper improvement from 2&rarr;4 than
+        from 6&rarr;8). The study also found that <strong>recirculation
+        percentage</strong> matters: reducing recirculation from 50% to 30%
+        significantly reduced particle concentration, because recirculated
+        unfiltered air returns virus to the room.</p>
+
+      <h3>Limitations</h3>
+
+      <h4>ACH is treated as effective removal rate</h4>
+      <p>The model uses ACH as the sole removal mechanism. In reality, total removal
+        includes ventilation, gravitational deposition, viral inactivation, and
+        respiratory absorption
+        (<a href="https://doi.org/10.1016/j.buildenv.2022.109924">Aganovic et al. 2023</a>
+        models nine separate mechanisms). At ACH&nbsp;&ge;&nbsp;3, ventilation
+        dominates the other terms and the simplification is reasonable. At lower
+        ACH, deposition and inactivation become proportionally more significant
+        and the model may overestimate risk.</p>
+
+      <h4>Fresh air vs. recirculated air</h4>
+      <p>The model does not distinguish between fresh outside air and recirculated
+        air. If an HVAC system recirculates air without effective filtration,
+        the virus is returned to the room and the effective removal rate is lower
+        than the nominal ACH. Users should enter the <strong>effective ACH for
+        virus removal</strong>: for 100% outside air or HEPA-filtered
+        recirculation, use the full ACH; for unfiltered recirculation, use only
+        the outside air fraction.</p>
+
+      <h4>Mixing ventilation assumed</h4>
+      <p>As noted on the <a href="room-volume.html">room volume</a> evidence page,
+        the model assumes mixing ventilation. For displacement or natural
+        ventilation, the same ACH value produces different spatial concentration
+        patterns and the model&rsquo;s predictions may need adjustment.</p>
+    </article>
+  </main>
+</body>
+</html>

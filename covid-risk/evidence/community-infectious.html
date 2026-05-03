@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Community infectious fraction - COVID risk model evidence</title>
+  <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+  <header>
+    <h1><a href="../index.html">COVID event risk calculator</a></h1>
+    <p class="subtitle">Evidence and methodology for model inputs</p>
+  </header>
+
+  <main class="evidence">
+    <article>
+      <h2>Community infectious fraction</h2>
+      <p><strong>Default:</strong> Auto-populated from San Francisco hospital
+        admission data when available; static fallback of 0.04%&ndash;0.12%.</p>
+
+      <h3>How it affects the model</h3>
+      <p>This parameter represents the probability that a random person in
+        the community is currently infectious with SARS-CoV-2 (capable of
+        transmitting). It is used to estimate the expected number of
+        infectious attendees at the event. A higher community prevalence
+        means more infectious sources and proportionally higher risk.</p>
+      <p>The model uses a low and high estimate to produce a range of
+        outcomes, reflecting the substantial uncertainty in this parameter.</p>
+
+      <h3>Data source: SF hospital admissions</h3>
+      <p>The calculator auto-populates this field using live data from the
+        <a href="https://data.sfgov.org/Health-and-Social-Services/Respiratory-Virus-Hospital-Admissions-Over-Time/ppwr-akuv">San
+        Francisco Department of Public Health</a>, which publishes weekly
+        COVID-19 hospital admissions for SF residents admitted to SF
+        hospitals. Data is sourced from the CDC&rsquo;s National Healthcare
+        Safety Network (NHSN) via the California Department of Public Health
+        and updates weekly on Wednesdays with a one-week lag.</p>
+
+      <h4>Back-calculation method</h4>
+      <p>Point prevalence is derived from the hospitalization rate using the
+        infection-hospitalization ratio (IHR):</p>
+      <pre>prevalence = (weekly_hosp_rate / IHR) &times; (infectious_days / 7) / 100,000</pre>
+      <ul>
+        <li><strong>Weekly hospitalization rate:</strong> 4-week rolling
+          average of COVID-19 admissions per 100,000 SF residents, from the
+          DataSF API.</li>
+        <li><strong>Infectious period:</strong> 7 days. Omicron-era
+          culturable virus shedding peaks in days 1&ndash;5 and is generally
+          undetectable by day 8&ndash;10
+          (<a href="https://doi.org/10.1093/cid/ciac535">Boucau et al.
+          2022</a>).</li>
+        <li><strong>IHR range:</strong> 1.3%&ndash;1.9%. This produces the
+          low/high bounds. A lower IHR implies more infections per
+          hospitalization, yielding a higher prevalence estimate.</li>
+      </ul>
+
+      <h4>Why hospitalization-based back-calculation?</h4>
+      <p>Hospitalizations are the most consistently reported COVID metric.
+        Unlike case counts (which depend on who tests and reports) or
+        wastewater (which lacks a reliable site-specific
+        prevalence conversion factor), every COVID hospitalization is
+        captured in the NHSN reporting system.</p>
+
+      <h3>Evidence</h3>
+
+      <h4>No direct prevalence measurement exists for SF</h4>
+      <p>The gold standard for measuring community prevalence is random
+        population sampling with PCR testing, as the UK&rsquo;s Office for
+        National Statistics COVID-19 Infection Survey (ONS CIS) did through
+        March 2023. No equivalent survey exists for the US at any geographic
+        level, and the ONS CIS has been discontinued.</p>
+      <p>Wastewater surveillance (WastewaterSCAN, CDC NWSS) provides
+        directional trends but cannot be reliably converted to absolute
+        prevalence. Multiple studies have attempted wastewater-to-prevalence
+        calibration:</p>
+      <ul>
+        <li><a href="https://doi.org/10.1038/s41598-024-64864-1">Mohring et
+          al. (2024)</a> calibrated PMMoV-normalized wastewater against a
+          14,000-person cohort in Germany, finding a scaling factor of
+          &gamma;&nbsp;=&nbsp;0.208&nbsp;&plusmn;&nbsp;0.031. However, this
+          factor is site-specific and not transferable across sewersheds.</li>
+        <li><a href="https://doi.org/10.1038/s41467-022-31753-y">Morvan et
+          al. (2022)</a> estimated prevalence from 45 UK wastewater sites to
+          within &plusmn;1.1% of ONS estimates, but required site-specific
+          covariates (flow rate, suspended solids, etc.).</li>
+        <li><a href="https://doi.org/10.1038/s41598-024-55752-9">Li et al.
+          (2024)</a> showed the wastewater-prevalence relationship
+          &ldquo;varies both in space and in time&rdquo; and requires a
+          hierarchical Bayesian model with national prevalence survey data as
+          input.</li>
+        <li><a href="https://doi.org/10.1038/s41598-022-21354-6">Rainey et
+          al. (2022)</a> validated a mass balance equation in Gainesville, FL
+          achieving 1.28% MAE, but the dominant uncertainty is the fecal
+          shedding rate, which varies by 2&ndash;3 orders of magnitude across
+          individuals.</li>
+      </ul>
+      <p>No SF-specific wastewater-to-prevalence calibration has been
+        published.</p>
+
+      <h4>IHR estimates</h4>
+      <p>The infection-hospitalization ratio is the key uncertain parameter
+        in the back-calculation. CDC burden estimates provide an implicit
+        overall IHR:</p>
+      <table class="grid">
+        <thead><tr><th>Season</th><th>Illnesses</th><th>Hospitalizations</th><th>Implied IHR</th></tr></thead>
+        <tbody>
+          <tr><td>2024&ndash;2025</td><td>14.1&ndash;20.7M</td><td>390&ndash;550K</td><td>~2.7%</td></tr>
+          <tr><td>2025&ndash;2026 (thru Apr&nbsp;18)</td><td>3.7&ndash;11.9M</td><td>110&ndash;240K</td><td>~2.0&ndash;3.0%</td></tr>
+        </tbody>
+      </table>
+      <p>These IHRs are for <em>symptomatic</em> illnesses. A substantial
+        fraction of SARS-CoV-2 infections are fully asymptomatic (and still
+        contribute to transmission but are not counted in the CDC illness
+        estimates). To convert to an all-infection IHR, we divide by
+        (1&nbsp;&minus;&nbsp;asymptomatic&nbsp;fraction).</p>
+
+      <h4>Asymptomatic fraction</h4>
+      <p>Two key sources bound the Omicron-era asymptomatic fraction:</p>
+      <table class="grid">
+        <thead><tr><th>Study</th><th>Design</th><th>Asymptomatic %</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9321237/">Ma
+              et al. (2022)</a></td>
+            <td>Meta-analysis, 8 studies, n=7,640</td>
+            <td>32.4% (95% CI: 25.3&ndash;39.5%)</td>
+            <td>Early Omicron (BA.1); 35.9% in populations with &ge;80% vax
+              coverage. High heterogeneity (I&sup2;&nbsp;=&nbsp;97.7%).</td>
+          </tr>
+          <tr>
+            <td><a href="https://doi.org/10.1038/s41598-025-28374-y">Choi
+              et al. (2025)</a></td>
+            <td>Mathematical model, South Korea national data</td>
+            <td>49.7% (vaccinated), 44.7% (unvaccinated)</td>
+            <td>Omicron era; progressive increase in asymptomatic fraction
+              from wild-type &rarr; Delta &rarr; Omicron.</td>
+          </tr>
+        </tbody>
+      </table>
+      <p>With near-universal hybrid immunity in 2026, the higher estimate
+        (~50%) is likely more representative of current conditions. The model
+        uses a 30&ndash;50% range to be conservative.</p>
+
+      <h4>Deriving the all-infection IHR</h4>
+      <p>Applying the asymptomatic adjustment to the CDC symptomatic IHR
+        of ~2.7%:</p>
+      <table class="grid">
+        <thead><tr><th>Asymptomatic fraction</th><th>Source</th><th>All-infection IHR</th></tr></thead>
+        <tbody>
+          <tr><td>32%</td><td>Ma et al. meta-analysis</td><td>2.7% &times; 0.68 = <strong>1.84%</strong></td></tr>
+          <tr><td>50%</td><td>Choi et al. 2025</td><td>2.7% &times; 0.50 = <strong>1.35%</strong></td></tr>
+        </tbody>
+      </table>
+      <p>The model uses <strong>1.3%&ndash;1.9%</strong>, which directly
+        spans the range derived from these two sources. The lower bound
+        (1.3%) corresponds to ~52% asymptomatic (Choi et al.); the upper
+        bound (1.9%) corresponds to ~30% asymptomatic (lower end of Ma
+        et al.).</p>
+
+      <h4>SF vs national hospitalization rates</h4>
+      <p>CDC COVID-NET data (which includes California as a surveillance
+        site) allows direct comparison of SF and national hospitalization
+        rates. The SF-to-national ratio is <strong>not stable</strong>
+        across seasons:</p>
+      <table class="grid">
+        <thead><tr><th>Season</th><th>CA cumulative</th><th>National cumulative</th><th>CA/National</th></tr></thead>
+        <tbody>
+          <tr><td>2022&ndash;2023</td><td>297.3</td><td>251.9</td><td>1.18&times;</td></tr>
+          <tr><td>2023&ndash;2024</td><td>250.8</td><td>200.0</td><td>1.25&times;</td></tr>
+          <tr><td>2024&ndash;2025</td><td>100.9</td><td>102.1</td><td>0.99&times;</td></tr>
+          <tr><td>2025&ndash;2026 (thru Apr&nbsp;18)</td><td>13.7</td><td>32.9</td><td>0.42&times;</td></tr>
+        </tbody>
+      </table>
+      <p>California was above national in summer-surge years (2022&ndash;23,
+        2023&ndash;24) and far below in the current season, which had no
+        West Coast winter surge. This is why the calculator uses SF-specific
+        hospital data rather than applying a fixed discount to national
+        estimates.</p>
+
+      <h3>Limitations</h3>
+      <ul>
+        <li><strong>IHR uncertainty dominates.</strong> The all-infection IHR
+          depends on age distribution, vaccination rates, variant, and
+          evolving population immunity. The 1.3%&ndash;1.9% range is derived
+          from the CDC symptomatic IHR adjusted by published asymptomatic
+          fractions, but both inputs carry uncertainty.</li>
+        <li><strong>Small-number noise.</strong> SF has ~836K residents. At
+          low prevalence, weekly admissions are in the single digits
+          (0&ndash;8), so week-to-week variance is high. The 4-week average
+          smooths this but may lag trend changes.</li>
+        <li><strong>Hospitalization captures only a subset.</strong> Not all
+          infections lead to hospitalization, and the IHR multiplier
+          attempts to account for this. Changes in clinical practice
+          (e.g., treating more patients as outpatients) would affect the
+          ratio without changing true prevalence.</li>
+        <li><strong>Data lag.</strong> SF hospitalization data updates weekly
+          with a 1-week lag, so the estimate reflects conditions
+          ~1&ndash;2 weeks ago.</li>
+        <li><strong>This is the most uncertain input in the model.</strong>
+          Unlike physical parameters (room volume, ventilation rates) that
+          can be measured, community prevalence is fundamentally
+          unobservable and changes week to week. Users should treat these
+          estimates as order-of-magnitude guidance.</li>
+      </ul>
+
+      <h3>Data sources</h3>
+      <ul>
+        <li><a href="https://data.sfgov.org/Health-and-Social-Services/Respiratory-Virus-Hospital-Admissions-Over-Time/ppwr-akuv">SF
+          DPH Respiratory Virus Hospital Admissions</a> (DataSF API)</li>
+        <li><a href="https://www.cdc.gov/covid/php/surveillance/burden-estimates.html">CDC
+          Preliminary COVID-19 Burden Estimates</a></li>
+        <li><a href="https://data.cdc.gov/Public-Health-Surveillance/Weekly-Rates-of-Laboratory-Confirmed-COVID-19-Hosp/6jg4-xsqq">CDC
+          COVID-NET Weekly Hospitalization Rates</a> (API)</li>
+        <li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9321237/">Ma
+          et al. (2022)</a> &mdash; Omicron asymptomatic fraction
+          meta-analysis (Viruses)</li>
+        <li><a href="https://doi.org/10.1038/s41598-025-28374-y">Choi
+          et al. (2025)</a> &mdash; Asymptomatic fraction by variant and
+          vaccination status (Scientific Reports)</li>
+        <li><a href="https://data.wastewaterscan.org/tracker/">WastewaterSCAN
+          Dashboard</a> (for directional trends)</li>
+      </ul>
+    </article>
+  </main>
+</body>
+</html>

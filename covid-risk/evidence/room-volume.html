@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Room volume - COVID risk model evidence</title>
+  <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+  <header>
+    <h1><a href="../index.html">COVID event risk calculator</a></h1>
+    <p class="subtitle">Evidence and methodology for model inputs</p>
+  </header>
+
+  <main class="evidence">
+    <article>
+      <h2>Room volume (m&sup3;)</h2>
+      <p><strong>Default value:</strong> 3,300 m&sup3;</p>
+
+      <h3>How it affects the model</h3>
+      <p>Room volume appears in the steady-state quanta concentration:</p>
+      <p><code>C = q / (ACH &times; V)</code></p>
+      <p>Larger volume means lower airborne concentration for the same emission
+        rate and ventilation rate. At the low infection probabilities this model
+        typically produces, halving the room volume approximately doubles the risk.</p>
+      <p>However, volume does not act alone. The total air cleaning rate is
+        <code>Q = ACH &times; V</code> (in m&sup3;/h). At steady state, the dose
+        depends on Q, not on V independently. Volume and ACH are only separable
+        in the transient phase (larger rooms take longer to reach steady-state
+        concentration). For a 2-hour event at ACH&nbsp;=&nbsp;3, the model is
+        mostly at steady state, so what matters is the product
+        ACH&nbsp;&times;&nbsp;V.</p>
+
+      <h3>Evidence</h3>
+
+      <h4>Volume dilution validated against real COVID-19 outbreaks</h4>
+      <p><a href="https://doi.org/10.1021/acs.est.1c06531">Peng et al. (2022)</a>
+        analyzed documented COVID-19 outbreaks and defined a risk parameter
+        <code>H&nbsp;=&nbsp;r<sub>e</sub>&middot;r<sub>p</sub>&middot;E<sub>p0</sub>&middot;f<sub>e</sub>&middot;f<sub>i</sub>&middot;D&nbsp;/&nbsp;L</code>,
+        where <code>L&nbsp;=&nbsp;V&middot;(ACH&nbsp;+&nbsp;&lambda;<sub>dep</sub>)&nbsp;/&nbsp;N<sub>occ</sub></code>
+        is the per-person air cleaning rate. Room volume enters through L &mdash;
+        what determines risk is the ventilation-adjusted volume per occupant, not
+        absolute volume.</p>
+      <p>Their Table&nbsp;1 compiles outbreak data across a wide range of room
+        volumes, showing that the Wells-Riley model fits observed attack rates:</p>
+      <table class="grid">
+        <thead><tr><th>Outbreak</th><th>Volume (m&sup3;)</th><th>Occupants</th><th>m&sup3;/person</th><th>Attack rate</th></tr></thead>
+        <tbody>
+          <tr><td>Guangzhou restaurant</td><td>60</td><td>20</td><td>3</td><td>45%</td></tr>
+          <tr><td>Small bus</td><td>22</td><td>17</td><td>1.3</td><td>12%</td></tr>
+          <tr><td>Big bus</td><td>97</td><td>46</td><td>2.1</td><td>17%</td></tr>
+          <tr><td>Skagit choir</td><td>810</td><td>60</td><td>13.5</td><td>87%</td></tr>
+          <tr><td>Call center</td><td>630</td><td>216</td><td>2.9</td><td>44%</td></tr>
+          <tr><td>Aircraft</td><td>60</td><td>19</td><td>3.2</td><td>63%</td></tr>
+          <tr><td>Slaughterhouse</td><td>3,000</td><td>19</td><td>158</td><td>26%</td></tr>
+          <tr><td>Germany meeting</td><td>170</td><td>2</td><td>85</td><td>43%</td></tr>
+        </tbody>
+      </table>
+      <p>Volume alone does not predict attack rate &mdash; the Skagit choir (810&nbsp;m&sup3;,
+        13.5&nbsp;m&sup3;/person) had 87% attack rate due to singing (high quanta emission)
+        and long duration (2.5&nbsp;h), while the slaughterhouse (3,000&nbsp;m&sup3;,
+        158&nbsp;m&sup3;/person) had only 26%. The risk parameter H, which combines
+        volume with ventilation, duration, activity, and occupancy, successfully
+        predicts the attack rate pattern across all outbreaks (their Figure&nbsp;1).</p>
+
+      <h4>Per-person ventilation rate is the key metric</h4>
+      <p>The same paper establishes that the practical risk indicator is
+        <code>H<sub>r</sub>&nbsp;=&nbsp;D&middot;N<sub>occ</sub>&nbsp;/&nbsp;(V&middot;(ACH&nbsp;+&nbsp;&lambda;<sub>dep</sub>))</code>,
+        which captures duration, occupancy, and per-person ventilation.
+        H<sub>r</sub>&nbsp;&lt;&nbsp;0.01 generally avoids major outbreaks;
+        H<sub>r</sub>&nbsp;&gt;&nbsp;0.1 corresponds to high attack rates.</p>
+      <p>This is consistent with
+        <a href="https://doi.org/10.1016/j.buildenv.2022.109924">Aganovic et al. (2023)</a>,
+        whose advanced Wells-Riley model uses the same
+        <code>C&nbsp;=&nbsp;S&nbsp;/&nbsp;(V&nbsp;&times;&nbsp;&Sigma;&lambda;)</code>
+        steady-state relationship. Their Figure&nbsp;5a shows the interaction
+        between ventilation rate and infection risk over time, confirming that
+        the ventilation-adjusted volume (i.e., Q&nbsp;=&nbsp;ACH&nbsp;&times;&nbsp;V)
+        is the controlling parameter.</p>
+
+      <h3>Limitations</h3>
+
+      <h4>The well-mixed assumption breaks down in large spaces</h4>
+      <p>The model assumes uniform quanta concentration throughout the room.
+        <a href="https://www.rehva.eu/rehva-journal/chapter/ventilation-rate-and-room-size-effects-on-infection-risk-of-covid-19">REHVA guidance</a>
+        states this is reasonable for rooms up to ~300&nbsp;m&sup3; with ceilings
+        up to 4&nbsp;m. Our default of 3,300&nbsp;m&sup3; substantially exceeds
+        this threshold.</p>
+      <p><a href="https://doi.org/10.1038/s44172-024-00297-y">Geisler et al. (2024)</a>
+        compared analytical Wells-Riley, experimental aerosol measurements (ATMoS),
+        and CFD simulations across four theater venues with different ventilation
+        strategies (displacement, mixing, natural, and hybrid). Key findings:</p>
+      <ul>
+        <li><strong>Spatial variation in per-seat infection risk spanned orders of
+          magnitude</strong> within the same venue. In displacement-ventilated DVV
+          (99 seats), seats behind the emitter had pronounced aerosol plumes while
+          seats in front were &ldquo;almost unaffected.&rdquo; In naturally ventilated
+          NVV (470 seats), contamination spread throughout the entire venue.</li>
+        <li><strong>Ventilation type dominated room volume.</strong> Global risk of
+          infection R<sub>CFD</sub> for Omicron pre-pandemic conditions:
+          displacement&nbsp;=&nbsp;0.35, mixing&nbsp;=&nbsp;1.00,
+          natural&nbsp;=&nbsp;2.50+. The ventilation strategy mattered more than
+          the room size.</li>
+        <li><strong>The analytical well-mixed model disagreed with CFD
+          substantially in some configurations.</strong> For NVV especially, the
+          well-mixed model performed poorly because concentration never reached
+          steady state during the 2h event due to low air change rates. The authors
+          note that a steady-state correction factor (as proposed by Peng et al.)
+          is needed for venues where steady-state concentration is not reached.</li>
+        <li><strong>Practical recommendations varied by ventilation type:</strong>
+          displacement ventilation venues could hold 3h events with face coverings;
+          mixing ventilation venues needed surgical masks for 1h events and FFP2/N95
+          for 2&ndash;3h; naturally ventilated venues needed FFP2/N95 masks even for
+          1h events.</li>
+      </ul>
+      <p>For large venues, the model&rsquo;s volume-based dilution is a rough
+        spatial average: some attendees will be at much higher risk (near the source)
+        and others at much lower risk (far from the source) than the model predicts.
+        The aggregate expected number of infections may still be reasonable, but
+        the per-person risk estimate should be interpreted as a spatial average.</p>
+
+      <h4>Large venues: volume helps but doesn&rsquo;t eliminate risk</h4>
+      <p><a href="https://doi.org/10.1186/s12889-023-16154-0">Siebler et al. (2023)</a>
+        assessed infection risk at the Stuttgart State Opera using spatially resolved
+        SF<sub>6</sub> trace gas measurements at individual seat positions combined with
+        Monte Carlo simulation. The auditorium volume was 8,149&nbsp;m&sup3; with
+        displacement ventilation at 46,000&nbsp;m&sup3;/h (100% outside air) and
+        692 seats (~11.6&nbsp;m&sup3;/person).</p>
+      <p>Even with this very large, well-ventilated space, the reference scenario
+        (no masks, no testing) produced a mean of <strong>10.6 new infections</strong>
+        from ~3.8 infectious persons (R&nbsp;=&nbsp;2.75). Maximum safety measures
+        (FFP2 masks + rapid antigen test) reduced this to 0.25 infections
+        (R&nbsp;=&nbsp;0.32).</p>
+      <p>The study also found that <strong>off-seat areas</strong> (entrance hall,
+        intermission spaces, restrooms, exits) contributed meaningfully to total
+        infection risk despite being a small fraction of total event time. These
+        areas have smaller volumes and higher densities than the main auditorium
+        &mdash; a factor that single-room models like ours do not capture.</p>
+
+      <h4>This model assumes mixing ventilation</h4>
+      <p>The well-mixed Wells-Riley equation assumes that supply air mixes
+        turbulently with room air, producing approximately uniform aerosol
+        concentration throughout the space. This describes <strong>mixing
+        ventilation</strong> &mdash; the most common type in commercial buildings,
+        where air is blown from ceiling diffusers at high velocity.</p>
+      <p>Other ventilation types behave differently:</p>
+      <ul>
+        <li><strong>Displacement ventilation</strong> supplies cool air at low velocity
+          near the floor; it rises as it warms and is extracted at the ceiling.
+          This creates vertical stratification (cleaner air in the breathing zone,
+          contaminated air above) that the well-mixed model does not capture.
+          Geisler et al. found displacement ventilation produced the lowest infection
+          risk of all strategies &mdash; the model may overestimate risk for
+          displacement-ventilated spaces.</li>
+        <li><strong>Natural ventilation</strong> (open windows, no mechanical system)
+          produces very little mixing. The well-mixed model substantially
+          underestimated risk in the Geisler study (R<sub>analytical</sub>&nbsp;=&nbsp;0.79
+          vs R<sub>CFD</sub>&nbsp;=&nbsp;2.63) because concentration near the source
+          was far higher than the room average.</li>
+      </ul>
+      <p>If you are assessing a space with displacement or natural ventilation,
+        this model&rsquo;s results should be interpreted with caution and may
+        need adjustment.</p>
+
+      <h4>Volume per person vs. absolute volume</h4>
+      <p>The outbreak data in Peng et al. shows that volume per person (m&sup3;/person)
+        is more informative than absolute volume. A 3,000&nbsp;m&sup3; room with
+        19 people (158&nbsp;m&sup3;/person) is very different from the same room with
+        300 people (10&nbsp;m&sup3;/person). The model captures this correctly because
+        volume and attendee count are separate inputs, but users should be aware
+        that doubling the room size is equivalent to halving the occupancy from a
+        dilution perspective.</p>
+    </article>
+  </main>
+</body>
+</html>
