@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Annual non-COVID hospitalization baseline - COVID risk model evidence</title>
+  <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+  <header>
+    <h1><a href="../index.html">COVID event risk calculator</a></h1>
+    <p class="subtitle">Evidence and methodology for model inputs</p>
+  </header>
+
+  <main class="evidence">
+    <article>
+      <h2>Annual non-COVID hospitalization baseline</h2>
+      <p>This page sources the comparison table at the bottom of the
+        dashboard. The table answers a different question from the rest of
+        the calculator: not &ldquo;how much COVID hospitalization risk
+        does this event add?&rdquo; but &ldquo;what is this person&rsquo;s
+        non-COVID annual hospitalization risk for context?&rdquo; The
+        numbers are not used as model inputs &mdash; they are reference
+        data so users can compare COVID-driven risk against background
+        risk for their group.</p>
+
+      <h3>What &ldquo;unplanned hospitalization&rdquo; means here</h3>
+      <p>Reported rates are <em>all-cause unplanned</em> annual admissions:
+        acute illness, infection, MI, stroke, trauma, exacerbations of
+        chronic disease. <strong>Excluded:</strong> scheduled surgeries,
+        elective procedures, planned chemotherapy infusions, outpatient
+        dialysis sessions, and childbirth/labor &amp; delivery.</p>
+      <p>Excluding childbirth matters: it accounts for ~11% of all US
+        hospital stays and dominates the female 18&ndash;44 admission
+        rate, inflating it 2&ndash;3&times; vs. males if included
+        (<a href="https://hcup-us.ahrq.gov/reports/statbriefs/sb11.pdf">AHRQ
+        Statistical Brief #11</a>). Since the calculator&rsquo;s purpose
+        is acute-illness risk comparison, maternal stays are not
+        relevant.</p>
+
+      <h3>Non-IC adults by age</h3>
+      <table class="grid">
+        <thead>
+          <tr><th>Age band</th><th>Annual unplanned rate</th><th>Primary source</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>18&ndash;29</td><td>~3%</td><td>HCUP NIS 2015 (interpolated lower end of 18&ndash;44)</td></tr>
+          <tr><td>30&ndash;44</td><td>4&ndash;5%</td><td>HCUP NIS 2015 (4,024 / 100k for 18&ndash;44 band)</td></tr>
+          <tr><td>45&ndash;64</td><td>9&ndash;10%</td><td>HCUP NIS 2015 (10,437 / 100k)</td></tr>
+          <tr><td>65&ndash;74</td><td>18&ndash;20%</td><td>HCUP Stat Brief #103 (264 / 1,000 stays &minus; 28.5% elective)</td></tr>
+          <tr><td>75&ndash;84</td><td>~33%</td><td>HCUP Stat Brief #103 (418 / 1,000 stays &minus; 21.0% elective)</td></tr>
+          <tr><td>85+</td><td>~50%</td><td>HCUP Stat Brief #103 (577 / 1,000 stays &minus; 12.5% elective)</td></tr>
+        </tbody>
+      </table>
+      <p>The Healthcare Cost &amp; Utilization Project (HCUP)
+        <a href="https://www.ncbi.nlm.nih.gov/books/NBK487974/">Nationwide
+        Inpatient Sample</a> is the largest publicly available US inpatient
+        database. Its statistical briefs explicitly exclude maternal and
+        neonatal stays from age-stratified rates. The clean source for the
+        65+ split is HCUP Statistical Brief #103
+        (<a href="https://hcup-us.ahrq.gov/reports/statbriefs/sb103.jsp">Hospital
+        Utilization Among Oldest Adults, 2008</a>), which reports both
+        admission rates and the elective fraction by age, allowing the
+        unplanned rate to be backed out by subtraction.</p>
+      <p>The CDC&rsquo;s
+        <a href="https://www.cdc.gov/nchs/hus/topics/hospitalization.htm">National
+        Health Interview Survey</a> reports a 5.9% age-adjusted rate of
+        &ldquo;any hospital stay in past 12 months&rdquo; for ages
+        1&ndash;64 (2019), which is broadly consistent with the NIS
+        numbers above when pooled across the 18&ndash;64 range and
+        accounting for the planned-stay fraction.</p>
+
+      <h3>IC adults by severity tier</h3>
+      <p>Severity tier definitions match those used elsewhere in the
+        calculator
+        (<a href="hosp-given-infection.html">hosp-given-infection
+        evidence</a>): severe = active SOT/HCT/B-cell-depleting therapy /
+        advanced malignancy; moderate = biologics / chemo / dialysis;
+        mild = controlled HIV (CD4 &gt;500), low-dose immunosuppressants,
+        asplenia, etc.</p>
+      <table class="grid">
+        <thead>
+          <tr><th>Tier</th><th>Annual unplanned rate</th><th>Anchor sources</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Severe IC</td><td>30&ndash;50% (point ~35%)</td><td>SOT cohorts, allo-HCT, dialysis (USRDS)</td></tr>
+          <tr><td>Moderate IC</td><td>15&ndash;25% (point ~18&ndash;20%)</td><td>BSRBR / Veterans RA on TNFi, chemo cohorts</td></tr>
+          <tr><td>Mild IC</td><td>10&ndash;15% (point ~12%)</td><td>NA-ACCORD HIV (CD4 &ge;500), INFORM, splenectomy cohorts</td></tr>
+        </tbody>
+      </table>
+
+      <h4>Severe IC sources</h4>
+      <ul>
+        <li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC12338358/">Post&ndash;kidney
+            transplant hospitalizations and long-term outcomes</a>
+          (multicenter prospective cohort): median 2 rehospitalizations
+          per recipient over 5.8&nbsp;y, ~0.34 admissions per
+          patient-year (~34%/yr).</li>
+        <li><a href="https://www.sciencedirect.com/science/article/abs/pii/S0041134511002843">Rehospitalization
+            in the first year post-kidney transplant</a>: <strong>62.5%
+            rehospitalized at least once in year 1</strong>; primary
+          causes were infection and renal dysfunction.</li>
+        <li><a href="https://jamanetwork.com/journals/jamanetworkopen/fullarticle/2737307">Factors
+            associated with unplanned 30-day readmissions after HCT</a>
+          (JAMA Network Open): explicitly <em>unplanned</em> admissions;
+          51% had &ge;1 unscheduled readmission during follow-up.</li>
+        <li><a href="https://usrds-adr.niddk.nih.gov/2024/end-stage-renal-disease/5-hospitalization">USRDS
+            2024 Annual Data Report</a>: <strong>1.58 admissions per
+            person-year</strong> for ESKD on dialysis (2018), declining
+          from 1.82 PPY in 2009.</li>
+      </ul>
+
+      <h4>Moderate IC sources</h4>
+      <ul>
+        <li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC3076552/">TNF-&alpha;
+            antagonist use and hospitalization for infection in Veterans
+            with RA</a>: hospitalization-for-infection rate <strong>3.32
+            per 100 PY</strong> on anti-TNF (infection-only; all-cause
+          unplanned would be higher).</li>
+        <li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC3105607/">British
+            Society for Rheumatology Biologics Register (Galloway et al.
+            2011)</a>: serious infection rate <strong>~4&ndash;5 per 100
+            PY</strong> in working-age, <strong>14.2 per 100 PY</strong>
+          in patients &ge;65.</li>
+        <li><a href="https://ascopubs.org/doi/10.1200/CCI.18.00147">Hospitalization
+            risk during chemotherapy for advanced cancer (Brooks et al.,
+            JCO CCI 2019)</a>: 6-month <em>unplanned</em> hospitalization
+          rates of 20&ndash;50% by risk stratum &mdash; annualizes to
+          40&ndash;80%/yr <em>while actively on chemo</em> (a transient
+          state).</li>
+      </ul>
+
+      <h4>Mild IC sources</h4>
+      <ul>
+        <li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC8205637/">Hospitalization
+            rates among PWH in the US/Canada, 2005&ndash;2015 (NA-ACCORD,
+            Davy-Mendez et al.)</a>: all-cause hospitalization fell from
+          22.3 / 100 PY (2005) to <strong>13.0 / 100 PY (2015)</strong>;
+          patients with CD4 &ge;500 and viral suppression had the lowest
+          rates.</li>
+        <li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC7755093/">Hospitalization
+            rates among PLWH, southeastern US, 1996&ndash;2016</a>: well-controlled
+          (CD4 &gt;500, suppressed) sat at <strong>~10&ndash;15 / 100
+            PY</strong>; CD4 &lt;200 had IRR 3.32.</li>
+        <li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10730312/">INFORM
+            (Quint et al. 2023, n=12M, England)</a>: solid tumors
+          (&gt;5&nbsp;y out) and high-dose corticosteroids both have
+          aIRR ~1.4&times; population baseline &rarr; ~14%/yr applied to
+          ~10%/yr adult baseline.</li>
+        <li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC4621170/">Bacterial
+            infections following splenectomy / asplenia cohorts</a>:
+          first severe infection requiring hospitalization at <strong>7.0
+            per 100 PY overall</strong>, 11&ndash;14 / 100 PY in
+          adults &ge;60.</li>
+      </ul>
+
+      <h3>Caveats</h3>
+      <ul>
+        <li><strong>NIS counts stays, not unique people.</strong> A
+          patient hospitalized 3&times;/year is counted 3 times. This
+          slightly overstates the per-person annual probability,
+          especially in older bands where readmissions are common
+          (~10&ndash;15% inflation at 65+). The NHIS self-report figure
+          (5.9% age-adjusted, 1&ndash;64) gives the per-person
+          probability and tends to run lower.</li>
+        <li><strong>Use 2018&ndash;2019 data as baseline.</strong>
+          NIS volumes dropped sharply during COVID
+          (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC7769002/">Birkmeyer
+            et al., Health Affairs 2020</a>: &minus;43% nadir in
+          April 2020). 2020&ndash;2022 data underestimates the steady-state
+          baseline, particularly for elective and to a lesser extent
+          unplanned care (deferred ED visits). Rates have largely
+          recovered by 2023 but remain ~5&ndash;10% below pre-pandemic
+          for some age groups.</li>
+        <li><strong>Transplant first-year rates are not steady state.</strong>
+          SOT admission rates in year 1 are roughly 2&ndash;3&times;
+          year 2+, driven by surgical complications, rejection, and CMV.
+          A user who is a stable 5+ year-out transplant recipient should
+          mentally use the steady-state number (~25&ndash;30%/yr), not
+          the headline first-year rate.</li>
+        <li><strong>Active chemo is a transient state.</strong> The
+          40&ndash;80%/yr unplanned rate during chemo applies for
+          ~3&ndash;6 months; survivorship rates drop back near baseline
+          within 1&ndash;2 years of completion. The moderate-IC tier
+          will have wide spread depending on what fraction of users are
+          <em>currently</em> on chemo vs. on maintenance therapy.</li>
+        <li><strong>HIV literature is dated.</strong> The strongest
+          stratified data is 2005&ndash;2015. Modern ART cohorts with
+          CD4 &gt;500 and U=U almost certainly hospitalize at near-general-population
+          rates today; the 10&ndash;15%/yr estimate may be slightly
+          conservative for 2026.</li>
+        <li><strong>The general-adult baseline (~8&ndash;12%) already
+            includes some IC patients</strong>, so &ldquo;mild IC&rdquo;
+          sitting only marginally above baseline is mathematically
+          expected and consistent with INFORM&rsquo;s 1.4&times; aIRR.</li>
+        <li><strong>HCUP Statistical Brief #103 is from 2008.</strong>
+          It is the only source with a clean 65&ndash;74 / 75&ndash;84 /
+          85+ split AND elective fraction. Rates have declined since
+          (NIS 2000&ndash;2015 trend: &minus;25% in adults 65+), so the
+          modern 65&ndash;74 unplanned rate is likely closer to 15&ndash;18%
+          than 19%. The dashboard figure (18&ndash;20%) splits the
+          difference.</li>
+        <li><strong>No single source covers all three IC tiers.</strong>
+          Triangulation is unavoidable; the recommended numbers are
+          population-weighted estimates rather than single citable
+          rates.</li>
+      </ul>
+
+      <h3>Why this matters for the calculator</h3>
+      <p>The dashboard&rsquo;s &ldquo;Annual totals&rdquo; section
+        reports COVID-attributable hospitalization risk under a chosen
+        events-per-year frequency. To interpret that number, the user
+        needs to know what their non-COVID annual hospitalization risk
+        looks like for context. A 65-year-old with severe IC sees a
+        baseline of ~35%/yr; a healthy 25-year-old sees ~3%/yr. A
+        COVID-attributable annual risk of ~1%/yr means very different
+        things in those two contexts.</p>
+    </article>
+  </main>
+</body>
+</html>
