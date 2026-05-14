@@ -219,6 +219,47 @@ export function veFromMonthsSinceVax(months) {
 
 export const DEFAULT_MONTHS_SINCE_VAX = 9;
 
+// --- Short-range / near-field jet model (Jia et al. 2022 + Henriques 2025) ---
+// Two-stage exhaled jet dilution factor S(L): C(L) = C_mouth / S(L).
+// Sedentary / standard activity, puff-stage values.
+// Source: Jia et al. 2022, Building and Environment, doi:10.1016/j.buildenv.2022.109166
+// See evidence/close-contact.html.
+const JET_DILUTION_POINTS = [
+  [0.3,    3.0],
+  [0.5,   12.0],
+  [1.0,   94.0],
+  [1.5,  350.0],
+  [2.0,  600.0],
+];
+
+export function jetDilutionFactor(distance_m) {
+  if (distance_m <= JET_DILUTION_POINTS[0][0]) return JET_DILUTION_POINTS[0][1];
+  if (distance_m >= JET_DILUTION_POINTS[JET_DILUTION_POINTS.length - 1][0]) {
+    return JET_DILUTION_POINTS[JET_DILUTION_POINTS.length - 1][1];
+  }
+  for (let i = 1; i < JET_DILUTION_POINTS.length; i++) {
+    const [L1, S1] = JET_DILUTION_POINTS[i];
+    if (distance_m <= L1) {
+      const [L0, S0] = JET_DILUTION_POINTS[i - 1];
+      // log-log interpolation
+      const t = (Math.log(distance_m) - Math.log(L0)) / (Math.log(L1) - Math.log(L0));
+      return Math.exp(Math.log(S0) + t * (Math.log(S1) - Math.log(S0)));
+    }
+  }
+  return JET_DILUTION_POINTS[JET_DILUTION_POINTS.length - 1][1];
+}
+
+// Effective mouth-orifice exhalation volume rate (m³/hr) used to convert
+// quanta-emission rate q (q/hr, time-averaged over breathing cycle) into a
+// mouth-orifice concentration for the jet model: C_mouth = q / Q_mouth.
+// Calibrated to recover Cortellessa 2021 (~1% per 15-min face-to-face
+// speaking at 1 m, median emitter) and Hu 2024 (~40% near-field share in
+// a typical classroom). See evidence/close-contact.html.
+export const MOUTH_EXHALATION_VOLUME_RATE = 1.0;
+
+export const DEFAULT_CLOSE_CONTACTS_PER_ATTENDEE = 4;
+export const DEFAULT_CLOSE_CONTACT_DISTANCE_M = 1.0;
+
 export const DEFAULT_EVENT = {
   attendees: 100,
   duration_hours: 2.0,
@@ -227,6 +268,8 @@ export const DEFAULT_EVENT = {
   breathing_rate_m3_per_hour: 0.5,
   activities: DEFAULT_ACTIVITIES.map(a => ({ ...a })),
   ve_infection: veFromMonthsSinceVax(9),
+  close_contacts_per_attendee: DEFAULT_CLOSE_CONTACTS_PER_ATTENDEE,
+  close_contact_distance_m: DEFAULT_CLOSE_CONTACT_DISTANCE_M,
 };
 
 // --- Asymptomatic / presymptomatic parameters --------------------------
@@ -337,14 +380,38 @@ export function perEventInfectionProb(event, prev, mask_filtration, {
   const qEat = eatingFrac > 0 ? quantaPerHour(eatingActs, percentile) : 0;
   const qRest = eatingFrac < 1 ? quantaPerHour(nonEatingActs, percentile) : 0;
 
+  // Helper that combines eating-time (no masks) and non-eating-time (masks
+  // applied) quanta exposure given a per-source dose-volume factor `base`.
+  const combinedQuanta = (eatFactor, restFactor) =>
+    eatingFrac * qEat * eatFactor
+    + (1 - eatingFrac) * qRest * restFactor;
+
+  // --- Far-field (well-mixed Wells-Riley) ----------------------------
   const ach = Math.max(event.air_changes_per_hour, 0.01);
-  const base = event.duration_hours * event.breathing_rate_m3_per_hour
+  const farBase = event.duration_hours * event.breathing_rate_m3_per_hour
     * transientDoseFactor(event.duration_hours, ach)
     / (ach * event.room_volume_m3);
+  const farDose = farBase * (1 - hybrid_immunity) * combinedQuanta(
+    1.0,                                            // eating: no masks
+    sourceEmissionFactor * (1 - mask_filtration),   // non-eating: masks
+  );
 
-  const effectiveDose = base * (1 - hybrid_immunity) * (
-    eatingFrac * qEat                                                   // no masks
-    + (1 - eatingFrac) * qRest * sourceEmissionFactor * (1 - mask_filtration) // masks on
+  // --- Near-field (two-stage exhaled jet, Jia 2022 + Henriques 2025) ---
+  // Local concentration at distance L from an emitter:
+  //   C_local = q_emit / (Q_mouth * S(L))
+  // Receiver inhalation dose per close-contact emitter over the event:
+  //   nearDose = duration * breathing_rate * C_local
+  // (no transient-buildup correction: close-range plume is steady-state).
+  const nClose = Math.max(event.close_contacts_per_attendee || 0, 0);
+  const closeDist = Math.max(event.close_contact_distance_m
+    || DEFAULT_CLOSE_CONTACT_DISTANCE_M, 0.1);
+  const nearBase = nClose > 0
+    ? event.duration_hours * event.breathing_rate_m3_per_hour
+      / (MOUTH_EXHALATION_VOLUME_RATE * jetDilutionFactor(closeDist))
+    : 0;
+  const nearDose = nearBase * (1 - hybrid_immunity) * combinedQuanta(
+    1.0,
+    sourceEmissionFactor * (1 - mask_filtration),
   );
 
   const probs = [];
@@ -352,10 +419,56 @@ export function perEventInfectionProb(event, prev, mask_filtration, {
     const pEventAttendee = pComm
       * attendableFraction(prev.symptomatic_attendance)
       * peerVaxPrevalenceFactor(currentVaxFraction, event.ve_infection);
-    const expectedInfectious = (event.attendees - 1) * pEventAttendee;
-    probs.push(1 - Math.exp(-expectedInfectious * effectiveDose));
+    const farRate = (event.attendees - 1) * pEventAttendee * farDose;
+    const nearRate = nClose * pEventAttendee * nearDose;
+    probs.push(1 - Math.exp(-(farRate + nearRate)));
   }
   return [Math.min(...probs), Math.max(...probs)];
+}
+
+// Diagnostic: compute the far-field-only dose (per peer at p=1) and the
+// near-field-only dose (per close peer at p=1) for the same scenario.
+// Used by the UI to display the near-field share.
+export function doseDecomposition(event, mask_filtration, {
+  percentile = "mean",
+  hybrid_immunity = 0.0,
+  sourceEmissionFactor = 1.0,
+} = {}) {
+  const totalMin = event.activities.reduce((s, a) => s + a.minutes, 0);
+  const eatingActs = event.activities.filter(a => a.activity === 'eating');
+  const nonEatingActs = event.activities.filter(a => a.activity !== 'eating');
+  const eatingFrac = totalMin > 0
+    ? eatingActs.reduce((s, a) => s + a.minutes, 0) / totalMin : 0;
+  const qEat = eatingFrac > 0 ? quantaPerHour(eatingActs, percentile) : 0;
+  const qRest = eatingFrac < 1 ? quantaPerHour(nonEatingActs, percentile) : 0;
+  const combined =
+    eatingFrac * qEat
+    + (1 - eatingFrac) * qRest * sourceEmissionFactor * (1 - mask_filtration);
+
+  const ach = Math.max(event.air_changes_per_hour, 0.01);
+  const farBase = event.duration_hours * event.breathing_rate_m3_per_hour
+    * transientDoseFactor(event.duration_hours, ach)
+    / (ach * event.room_volume_m3);
+  const farDosePerPeer = farBase * (1 - hybrid_immunity) * combined;
+
+  const nClose = Math.max(event.close_contacts_per_attendee || 0, 0);
+  const closeDist = Math.max(event.close_contact_distance_m
+    || DEFAULT_CLOSE_CONTACT_DISTANCE_M, 0.1);
+  const nearDosePerPeer = nClose > 0
+    ? event.duration_hours * event.breathing_rate_m3_per_hour
+      / (MOUTH_EXHALATION_VOLUME_RATE * jetDilutionFactor(closeDist))
+      * (1 - hybrid_immunity) * combined
+    : 0;
+
+  const nFar = event.attendees - 1;
+  const farContribution = nFar * farDosePerPeer;
+  const nearContribution = nClose * nearDosePerPeer;
+  const total = farContribution + nearContribution;
+  return {
+    farContribution,
+    nearContribution,
+    nearShare: total > 0 ? nearContribution / total : 0,
+  };
 }
 
 // --- IC aggregation -----------------------------------------------------

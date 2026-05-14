@@ -13,8 +13,16 @@ import {
   peerVaxPrevalenceFactor,
   expectedIcAttendees,
   perEventInfectionProb, aggregateEventRisk,
+  doseDecomposition,
   fmtProb, fmtRange,
 } from "./model.js";
+
+const SEATING_PRESETS = {
+  rows:      { n: 4, d: 1.0 },
+  tables:    { n: 5, d: 0.9 },
+  reception: { n: 6, d: 0.7 },
+  distanced: { n: 2, d: 1.5 },
+};
 
 // --- Input schema ------------------------------------------------------
 // Maps DOM id -> { get(state), set(state, v), parse } so we can drive both
@@ -24,6 +32,7 @@ const scalarFields = [
   "attendees", "duration_hours", "room_volume_m3",
   "air_changes_per_hour", "breathing_rate_m3_per_hour",
   "months_since_vax", "self_selection", "events_per_year",
+  "close_contacts_per_attendee", "close_contact_distance_m",
 ];
 
 const activityIds = {
@@ -128,6 +137,8 @@ function stateToForm() {
   setInputValue("air_changes_per_hour", state.event.air_changes_per_hour);
   setInputValue("breathing_rate_m3_per_hour", state.event.breathing_rate_m3_per_hour);
   setInputValue("months_since_vax", state.months_since_vax);
+  setInputValue("close_contacts_per_attendee", state.event.close_contacts_per_attendee);
+  setInputValue("close_contact_distance_m", state.event.close_contact_distance_m);
 
   for (const a of state.event.activities) {
     setInputValue(activityIds[a.activity], a.minutes);
@@ -163,6 +174,8 @@ function formToState() {
   state.event.room_volume_m3 = readNumber("room_volume_m3");
   state.event.air_changes_per_hour = readNumber("air_changes_per_hour");
   state.event.breathing_rate_m3_per_hour = readNumber("breathing_rate_m3_per_hour");
+  state.event.close_contacts_per_attendee = Math.max(0, readNumber("close_contacts_per_attendee"));
+  state.event.close_contact_distance_m = Math.max(0.1, readNumber("close_contact_distance_m"));
   state.months_since_vax = readNumber("months_since_vax");
   state.event.ve_infection = veFromMonthsSinceVax(state.months_since_vax);
 
@@ -314,6 +327,10 @@ function render() {
   $("symptomatic_attendance_out").textContent =
     `${Math.round(sympAtt * 100)}% (${Math.round(attFrac * 100)}% of infectious attend)`;
   $("self_selection_out").textContent = state.self_selection.toFixed(2);
+  $("close_contacts_per_attendee_out").textContent =
+    state.event.close_contacts_per_attendee.toFixed(1).replace(/\.0$/, "");
+  $("close_contact_distance_m_out").textContent =
+    `${state.event.close_contact_distance_m.toFixed(2)} m`;
 
   // Mix slider percentages (show normalized share)
   const actTotal = ev.activities.reduce((s, a) => s + a.minutes, 0);
@@ -376,6 +393,13 @@ function render() {
   $("out_blended_vax_frac").textContent = `${(curVaxFrac * 100).toFixed(1)}%`;
   $("out_peer_vax_prev").textContent = `×${fmtNum(pvPrev, 3)}`;
   $("out_peer_mask_emit").textContent = `×${fmtNum(srcEmit, 3)}`;
+  // Near-field share: compute with the blended source-emission factor and a
+  // representative receiver (no own mask) so the displayed value reflects
+  // the average geometry-driven split, not any one mask choice.
+  const decomp = doseDecomposition(ev, 0, { sourceEmissionFactor: srcEmit });
+  $("out_near_share").textContent = ev.close_contacts_per_attendee > 0
+    ? `${(decomp.nearShare * 100).toFixed(1)}%`
+    : "—";
 
   // P(infection) by mask
   const maskHead = $("tbl_p_inf_by_mask").querySelector("thead tr");
@@ -616,6 +640,20 @@ function init() {
     el.addEventListener("input", () => {
       $("ic_preset").value = "custom";
     });
+  }
+
+  $("seating_preset").addEventListener("change", (e) => {
+    const v = e.target.value;
+    if (v === "custom" || !SEATING_PRESETS[v]) return;
+    state.event.close_contacts_per_attendee = SEATING_PRESETS[v].n;
+    state.event.close_contact_distance_m = SEATING_PRESETS[v].d;
+    stateToForm();
+    render();
+  });
+
+  // Flip seating preset to "custom" if user hand-edits the close-contact sliders.
+  for (const id of ["close_contacts_per_attendee", "close_contact_distance_m"]) {
+    $(id).addEventListener("input", () => { $("seating_preset").value = "custom"; });
   }
 
   $("reset_defaults").addEventListener("click", () => {

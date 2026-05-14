@@ -50,6 +50,34 @@
       </details>
 
       <details>
+        <summary>Seating density</summary>
+        <div class="field">
+          <label for="seating_preset">Preset</label>
+          <select id="seating_preset">
+            <option value="rows">Rows of chairs (~1 m apart)</option>
+            <option value="tables">Banquet tables (~0.9 m)</option>
+            <option value="reception">Standing reception (~0.7 m)</option>
+            <option value="distanced">Distanced rows (~1.5 m)</option>
+            <option value="custom">Custom</option>
+          </select>
+        </div>
+        <div class="field slider">
+          <label for="close_contacts_per_attendee"><a href="evidence/close-contact.html">Close-range neighbors per attendee</a>
+            <output id="close_contacts_per_attendee_out">4</output>
+          </label>
+          <input type="range" id="close_contacts_per_attendee" min="0" max="10" step="0.5" value="4">
+        </div>
+        <div class="field slider">
+          <label for="close_contact_distance_m">Avg. neighbor distance
+            <output id="close_contact_distance_m_out">1.0 m</output>
+          </label>
+          <input type="range" id="close_contact_distance_m" min="0.3" max="3.0" step="0.05" value="1.0">
+        </div>
+        <p class="hint">Adds a near-field exposure term per close neighbor.
+          Set neighbors to 0 to disable and recover the well-mixed-room model.</p>
+      </details>
+
+      <details>
         <summary>Attendee demographics</summary>
         <fieldset class="mix">
           <legend>Age distribution</legend>
@@ -256,6 +284,7 @@
           <tr><td>Blended current-season vax fraction</td><td id="out_blended_vax_frac"></td></tr>
           <tr><td>Vax prevalence factor</td><td id="out_peer_vax_prev"></td></tr>
           <tr><td>Source control factor</td><td id="out_peer_mask_emit"></td></tr>
+          <tr><td><a href="evidence/close-contact.html">Near-field share of dose</a></td><td id="out_near_share"></td></tr>
         </table>
       </div>
 

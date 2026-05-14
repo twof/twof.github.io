@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Close-contact / near-field exposure - COVID risk model evidence</title>
+  <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+  <header>
+    <h1><a href="../index.html">COVID event risk calculator</a></h1>
+    <p class="subtitle">Evidence and methodology for model inputs</p>
+  </header>
+
+  <main class="evidence">
+    <article>
+      <h2>Close-contact / near-field exposure</h2>
+      <p><strong>Default:</strong> 4 close-range neighbors per attendee at
+        an average distance of 1.0 m (rows-of-chairs configuration).</p>
+
+      <h3>What this models</h3>
+      <p>The base Wells-Riley model assumes the room air is well mixed and
+        that infectious aerosols dilute uniformly into the room volume. That
+        assumption holds for the <em>far-field</em> contribution &mdash; the
+        background concentration that builds up as ventilation flushes the
+        room &mdash; but it understates the dose to anyone close enough to
+        an infectious person to be inside their exhaled plume.</p>
+      <p>This input adds a parallel <strong>near-field</strong> exposure
+        term. For each close-range neighbor (within ~1.5 m) that turns out
+        to be infectious, the receiver is exposed to a local concentration
+        higher than the room average, with the local enhancement set by the
+        two-stage exhaled-jet dilution model.</p>
+
+      <h3>Mathematical form</h3>
+      <p>The total per-event Poisson exposure rate is the sum of two terms:</p>
+      <p><code>rate_total = rate_far + rate_near</code></p>
+      <ul>
+        <li><code>rate_far = (attendees - 1) &middot; p_inf &middot; D_far</code>
+          where <code>D_far</code> is the existing well-mixed Wells-Riley
+          per-source dose: <code>q &middot; t &middot; b &middot; transient(t, ACH) / (ACH &middot; V)</code>.</li>
+        <li><code>rate_near = N_close &middot; p_inf &middot; D_near</code>
+          where <code>D_near = q &middot; t &middot; b / (Q_mouth &middot; S(L))</code>
+          and <code>S(L)</code> is the jet dilution factor at distance
+          <code>L</code> from the emitter's mouth.</li>
+      </ul>
+      <p>Per-event probability: <code>P(inf) = 1 &minus; exp(&minus;rate_total)</code>.</p>
+      <p>Receiver-side mask filtration and source-side mask emission
+        reduction apply identically to both terms (the same physics filters
+        particles regardless of geometry). The eating-time mask-removal
+        split that the model already applies for the far-field term applies
+        to the near-field term too.</p>
+
+      <h3>Jet dilution table (Jia et al. 2022)</h3>
+      <p>The dilution factor <code>S(L)</code> is the ratio of mouth-orifice
+        concentration to receiver-location concentration. Standard /
+        sedentary activity, puff-stage values, log-log interpolated:</p>
+      <table class="grid">
+        <thead><tr><th>Distance (m)</th><th>Dilution S(L)</th><th>Local conc. vs. room avg.</th></tr></thead>
+        <tbody>
+          <tr><td>0.3</td><td>3</td><td>extreme</td></tr>
+          <tr><td>0.5</td><td>12</td><td>very high</td></tr>
+          <tr><td>1.0</td><td>94</td><td>high</td></tr>
+          <tr><td>1.5</td><td>350</td><td>approaching room average</td></tr>
+          <tr><td>2.0</td><td>600</td><td>~room average</td></tr>
+        </tbody>
+      </table>
+      <p>The transition from jet (1/L decay) to puff (1/L<sup>2</sup>) stage
+        occurs at 0.28&ndash;0.99 m depending on activity intensity, per
+        Jia&rsquo;s Equations 7 and 13. Cortellessa et al. 2021 independently
+        report that close-proximity risk merges with the well-mixed-room
+        model at interpersonal distances of <strong>1.4&ndash;1.6 m</strong>
+        &mdash; consistent with the table above (S(1.5) = 350 starts to
+        approach the typical room-average dilution).</p>
+
+      <h3>Mouth-exhalation volume rate (calibration)</h3>
+      <p>The model uses <code>Q_mouth = 1.0 m&sup3;/hr</code> to convert the
+        time-averaged quanta-emission rate <code>q</code> into a mouth-orifice
+        concentration. This value is the only free calibration parameter and
+        was chosen so the model reproduces two independent published anchors:</p>
+      <ul>
+        <li><strong>Cortellessa 2021:</strong> 15-min face-to-face speaking
+          at 1 m (median emitter) &rarr; ~1% per-encounter infection
+          probability. Model reproduces 1.06%.</li>
+        <li><strong>Hu 2024:</strong> typical university classroom
+          (~28 students, ~150 m&sup3;, 0.9 m mean interpersonal distance)
+          &rarr; 40.5% near-field share of total dose. Model reproduces
+          ~47%.</li>
+      </ul>
+      <p>Both anchors converge on the same <code>Q_mouth</code> value, which
+        is itself plausible: the average exhaled-air volume rate during a
+        breathing cycle for a sedentary adult is ~0.5 m&sup3;/hr; during
+        normal speech it is somewhat higher because exhalation is sustained.
+        <code>Q_mouth = 1.0</code> sits within that physical range.</p>
+
+      <h3>What the new term changes</h3>
+      <p>At the calculator&rsquo;s defaults (100 attendees, 3300 m&sup3;,
+        ACH 3, 4 close at 1 m, no masks), the near-field component
+        accounts for <strong>~84% of total dose</strong>. The far-field-only
+        risk is ~34&ndash;103 per million; with near-field added the total
+        rises to ~209&ndash;628 per million.</p>
+      <p>More importantly, the near-field term decouples total risk from
+        room volume. Doubling the room from 3300 to 6600 m&sup3; reduces
+        the far-field component by half but leaves the near-field component
+        unchanged &mdash; total risk drops only ~8% rather than ~50%.
+        This addresses a long-standing limitation of the well-mixed Wells-
+        Riley model that has been increasingly criticized in the literature
+        since 2021.</p>
+
+      <h3>Seating presets</h3>
+      <p>The seating preset dropdown pre-fills typical close-contact counts
+        and distances:</p>
+      <table class="grid">
+        <thead><tr><th>Preset</th><th>Close neighbors</th><th>Avg. distance</th><th>Typical event</th></tr></thead>
+        <tbody>
+          <tr><td>Rows of chairs</td><td>4</td><td>1.0 m</td><td>lecture, talk, performance</td></tr>
+          <tr><td>Banquet tables</td><td>5</td><td>0.9 m</td><td>dinner, wedding, conference banquet</td></tr>
+          <tr><td>Standing reception</td><td>6</td><td>0.7 m</td><td>cocktail hour, mingling</td></tr>
+          <tr><td>Distanced rows</td><td>2</td><td>1.5 m</td><td>spaced seating, pandemic-era classroom</td></tr>
+        </tbody>
+      </table>
+      <p>Setting close neighbors to <strong>0</strong> disables the
+        near-field term entirely and recovers the previous well-mixed-only
+        model output.</p>
+
+      <h3>Caveats and limitations</h3>
+      <ul>
+        <li>The jet dilution table is for <em>standard / sedentary</em>
+          activity. More vigorous activity (loud speech, singing) shifts
+          the jet&ndash;puff transition outward, which would increase
+          near-field dose; the model implicitly handles this through the
+          higher quanta rates for those activities, but does not adjust
+          <code>S(L)</code> per activity.</li>
+        <li>The model assumes the same close neighbors are present
+          throughout the event. Real seating may rotate (intermission,
+          food service); the parameter should be interpreted as
+          time-averaged.</li>
+        <li>Face-to-face vs face-to-back orientation matters in CFD
+          models. Hu 2024 found 87% face-to-back in classrooms, which
+          softens the close-contact dose vs face-to-face. The single
+          dilution table here is an effective average; a per-orientation
+          model would be more accurate but adds another parameter.</li>
+        <li>Outdoor or strongly directional ventilation (e.g. UV-cleaned
+          air, displacement ventilation) can disrupt the puff-stage
+          dilution and reduce the near-field contribution. Not modeled.</li>
+      </ul>
+
+      <h3>Sources</h3>
+      <ul>
+        <li><a href="https://royalsocietypublishing.org/doi/10.1098/rsif.2024.0740">Henriques
+          et al., <em>J R Soc Interface</em> 2025 &mdash; &ldquo;An
+          integrated airborne transmission risk assessment model for
+          respiratory viruses: short- and long-range contributions.&rdquo;</a>
+          Multi-box (short + long) continuum model, adopted by WHO ARIA.
+          Reports short-range dose 10&times; long-range in patient wards.</li>
+        <li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9085449/">Jia
+          et al., <em>Building and Environment</em> 2022 &mdash;
+          &ldquo;Exposure and respiratory infection risk via the short-range
+          airborne route.&rdquo;</a> Two-stage jet model and dilution-factor
+          table used here.</li>
+        <li><a href="https://pubmed.ncbi.nlm.nih.gov/34225157/">Cortellessa
+          et al., <em>Sci Total Environ</em> 2021 &mdash; &ldquo;Close
+          proximity risk assessment for SARS-CoV-2 infection.&rdquo;</a>
+          Establishes the 1.4&ndash;1.6 m boundary distance and provides
+          the 15-min/1-m calibration anchor.</li>
+        <li><a href="https://www.sciencedirect.com/science/article/abs/pii/S0048969724004819">Hu
+          et al., <em>Sci Total Environ</em> 2024 &mdash; &ldquo;Analysis
+          of SARS-CoV-2 transmission in a university classroom based on
+          real human close contact behaviors.&rdquo;</a> Real-data classroom
+          decomposition (40.5% short-range / 59.5% long-range);
+          near-field-share calibration anchor.</li>
+        <li><a href="https://www.who.int/news-room/events/detail/2024/05/08/default-calendar/introducing-the-aria-tool---indoor-airborne-risk-assessment">WHO
+          Airborne Risk Indoor Assessment (ARIA) tool, 2024.</a> Endorses
+          the multi-box short+long approach for indoor risk assessment.</li>
+        <li><a href="https://www.ashrae.org/technical-resources/bookstore/ashrae-standard-241-control-of-infectious-aerosols">ASHRAE
+          Standard 241-2023, Control of Infectious Aerosols.</a> Explicitly
+          covers only long-range (&gt;1 m) airborne transmission, treating
+          close contact as a separate problem &mdash; the regulatory
+          motivation for the two-zone split.</li>
+        <li><a href="https://github.com/CERN/CAiMIRA">CAiMIRA (CERN open-source
+          implementation).</a> Reference codebase that combines Wells-Riley
+          with a two-stage jet term in production.</li>
+      </ul>
+    </article>
+  </main>
+</body>
+</html>
