@@ -310,8 +310,12 @@ export function attendableFraction(symptomaticAttendanceRate) {
 export const DEFAULT_SYMPTOMATIC_ATTENDANCE = 0.0;
 
 export const DEFAULT_PREVALENCE = {
-  community_infectious_low:  0.0004,
-  community_infectious_high: 0.0012,
+  // Community infectious fraction is required to be set externally
+  // (always from live SF hospitalization data; see app.js).
+  // null indicates "not yet loaded" - the model will not produce
+  // meaningful output until these are populated.
+  community_infectious_low:  null,
+  community_infectious_high: null,
   symptomatic_attendance: DEFAULT_SYMPTOMATIC_ATTENDANCE,
 };
 

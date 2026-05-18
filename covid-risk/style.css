@@ -101,6 +101,24 @@ main {
   background: #eef6f1;
   border-radius: 4px;
 }
+.live-note.loading {
+  color: var(--fg-soft);
+  background: #f3f1ed;
+}
+.prev-error {
+  font-size: 12px;
+  color: var(--warn);
+  margin: 0 0 8px;
+  padding: 6px 10px;
+  background: #fdf0eb;
+  border: 1px solid var(--warn);
+  border-radius: 4px;
+}
+.prev-error button {
+  margin-left: 8px;
+  padding: 2px 8px;
+  font-size: 12px;
+}
 input[readonly] {
   background: var(--accent-soft);
   color: var(--fg-soft);

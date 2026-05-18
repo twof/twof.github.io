@@ -109,14 +109,15 @@
 
       <details open>
         <summary>Prevalence</summary>
-        <p id="prevalence_live_note" class="live-note" style="display:none"></p>
+        <p id="prevalence_live_note" class="live-note" style="display:none">Loading SF prevalence data…</p>
+        <p id="prevalence_error" class="prev-error" style="display:none"></p>
         <div class="field">
           <label for="community_infectious_low"><a href="evidence/community-infectious.html">Community infectious</a> — low (fraction)</label>
-          <input type="number" id="community_infectious_low" min="0" max="0.1" step="0.0001" value="0.0004" readonly>
+          <input type="number" id="community_infectious_low" min="0" max="0.1" step="0.00001" value="" readonly>
         </div>
         <div class="field">
           <label for="community_infectious_high"><a href="evidence/community-infectious.html">Community infectious</a> — high (fraction)</label>
-          <input type="number" id="community_infectious_high" min="0" max="0.1" step="0.0001" value="0.0012" readonly>
+          <input type="number" id="community_infectious_high" min="0" max="0.1" step="0.00001" value="" readonly>
         </div>
         <div class="field slider">
           <label for="symptomatic_attendance"><a href="evidence/symptomatic-attendance.html">Symptomatic attendance probability</a>

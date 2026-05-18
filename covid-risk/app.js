@@ -113,6 +113,7 @@ const $ = (id) => document.getElementById(id);
 function setInputValue(id, v) {
   const el = $(id);
   if (!el) return;
+  if (v == null) { el.value = ""; return; }
   el.value = typeof v === "number" ? formatInputNumber(v) : v;
 }
 
@@ -183,8 +184,13 @@ function formToState() {
     a.minutes = readNumber(activityIds[a.activity]);
   }
 
-  state.prev.community_infectious_low = readNumber("community_infectious_low");
-  state.prev.community_infectious_high = readNumber("community_infectious_high");
+  // Only adopt prevalence from form when the inputs hold real numbers.
+  // Empty inputs preserve the "not yet loaded" state (null), which gates
+  // the result tables in render().
+  const lowVal = parseFloat($("community_infectious_low").value);
+  const highVal = parseFloat($("community_infectious_high").value);
+  state.prev.community_infectious_low = Number.isFinite(lowVal) ? lowVal : null;
+  state.prev.community_infectious_high = Number.isFinite(highVal) ? highVal : null;
   state.prev.symptomatic_attendance = readNumber("symptomatic_attendance");
 
   state.self_selection = readNumber("self_selection");
@@ -307,6 +313,12 @@ function fmtNum(v, digits = 2) {
 function render() {
   formToState();
 
+  // Always require live SF prevalence data - block result rendering until
+  // it loads. The input form (sliders, mixes) is still shown so users can
+  // tune parameters while waiting.
+  const prevLoaded = Number.isFinite(state.prev.community_infectious_low)
+    && Number.isFinite(state.prev.community_infectious_high);
+
   // Normalize mixes for calculation but preserve raw inputs in the form.
   const icMaskMix = normalizeMix({ ...state.ic_mask_mix });
   const icVaxMix = normalizeMix({ ...state.ic_vax_mix });
@@ -359,6 +371,14 @@ function render() {
   renderMixPcts(icVaxFields, icVaxMix);
   renderMixPcts(nicMaskFields, nicMaskMix);
   renderMixPcts(nicVaxFields, nicVaxMix);
+
+  // Toggle results visibility based on whether live prevalence has loaded.
+  const outputs = document.getElementById("outputs");
+  if (outputs) outputs.style.opacity = prevLoaded ? "1" : "0.35";
+  if (!prevLoaded) {
+    writeUrlParams();
+    return;
+  }
 
   // Compute current and optional baseline results
   const cur = computeResults(state);
@@ -557,43 +577,53 @@ function readUrlParams() {
 
 // --- Live prevalence from SF hospitalization data ---------------------
 
+const AVERAGING_WEEKS = 8;
 const SF_HOSP_API = "https://data.sfgov.org/resource/ppwr-akuv.json"
   + "?$where=respiratory_virus='COVID-19'"
-  + "&$order=week_end_date DESC&$limit=8";
+  + `&$order=week_end_date DESC&$limit=${AVERAGING_WEEKS}`;
 const SF_POP = 836321;
 const INFECTIOUS_DAYS = 7;
 // IHR range: fraction of all infections (including asymptomatic) that
-// result in hospitalization. Lower IHR → more infections per hosp → higher
-// prevalence estimate. We use this range to produce low/high bounds.
-const IHR_HIGH = 0.019;  // fewer inferred infections → low prevalence
-const IHR_LOW  = 0.013;  // more inferred infections → high prevalence
-const AVERAGING_WEEKS = 4;
+// result in hospitalization. Lower IHR → more infections per hosp →
+// higher prevalence estimate. Range derived from CDC season IHR (~2.0-3.0%
+// symptomatic) adjusted by 50% asymptomatic fraction. See
+// evidence/community-infectious.html.
+const IHR_HIGH = 0.019;
+const IHR_LOW  = 0.013;
 
 async function fetchSfPrevalence() {
-  try {
-    const resp = await fetch(SF_HOSP_API);
-    if (!resp.ok) return null;
-    const rows = await resp.json();
-    if (!rows.length) return null;
+  const resp = await fetch(SF_HOSP_API);
+  if (!resp.ok) throw new Error(`SF DataSF API returned ${resp.status}`);
+  const rows = await resp.json();
+  if (!rows.length) throw new Error("SF DataSF API returned no rows");
 
-    // Use the most recent AVERAGING_WEEKS weeks with data
-    const rates = rows
-      .slice(0, AVERAGING_WEEKS)
-      .map(r => parseFloat(r.admission_rate_per_100k));
-    if (rates.some(r => !Number.isFinite(r))) return null;
-
-    const avgRate = rates.reduce((a, b) => a + b, 0) / rates.length;
-    // avgRate = weekly hospitalizations per 100K
-    // weekly infections per 100K = avgRate / IHR
-    // point prevalence = weekly infections * (infectious_days/7) / 100K
-    const low  = (avgRate / IHR_HIGH) * (INFECTIOUS_DAYS / 7) / 1e5;
-    const high = (avgRate / IHR_LOW)  * (INFECTIOUS_DAYS / 7) / 1e5;
-
-    const dataAsOf = rows[0].week_end_date?.slice(0, 10) || null;
-    return { low, high, dataAsOf, avgRate, weeks: rates.length };
-  } catch {
-    return null;
+  const rates = rows
+    .slice(0, AVERAGING_WEEKS)
+    .map(r => parseFloat(r.admission_rate_per_100k));
+  if (rates.some(r => !Number.isFinite(r))) {
+    throw new Error("SF DataSF API returned non-numeric admission rate");
   }
+  if (rates.length < AVERAGING_WEEKS) {
+    throw new Error(`SF DataSF returned only ${rates.length} of ${AVERAGING_WEEKS} weeks`);
+  }
+
+  // Total admissions over the window; gives us the count for Poisson noise.
+  const avgRate = rates.reduce((a, b) => a + b, 0) / rates.length;
+  const totalAdmits = avgRate * rates.length * SF_POP / 1e5;
+  // 95% Poisson CI on the count (normal approximation, n>=8 ample).
+  const z = 1.96;
+  const lowerN = Math.max(0, totalAdmits - z * Math.sqrt(totalAdmits));
+  const upperN = totalAdmits + z * Math.sqrt(totalAdmits);
+  const rateLow95 = lowerN / rates.length / SF_POP * 1e5;
+  const rateHigh95 = upperN / rates.length / SF_POP * 1e5;
+
+  // Combine Poisson noise (low/high admission rate) with IHR uncertainty
+  // (low/high IHR). Lower prevalence ⇐ low admissions × high IHR.
+  const low  = (rateLow95 / IHR_HIGH) * (INFECTIOUS_DAYS / 7) / 1e5;
+  const high = (rateHigh95 / IHR_LOW) * (INFECTIOUS_DAYS / 7) / 1e5;
+
+  const dataAsOf = rows[0].week_end_date?.slice(0, 10) || null;
+  return { low, high, dataAsOf, avgRate, totalAdmits, weeks: rates.length };
 }
 
 function applyLivePrevalence(est) {
@@ -604,13 +634,48 @@ function applyLivePrevalence(est) {
 
   const note = $("prevalence_live_note");
   if (note) {
-    note.textContent = `Auto-populated from SF hospital admissions `
-      + `(${AVERAGING_WEEKS}-week avg: ${est.avgRate.toFixed(2)}/100K/wk, `
-      + `data through ${est.dataAsOf})`;
+    note.innerHTML = `<strong>SF live data:</strong> `
+      + `${est.avgRate.toFixed(2)} admissions/100K/wk averaged over `
+      + `${est.weeks} weeks (${est.totalAdmits.toFixed(0)} total admits, data through ${est.dataAsOf}). `
+      + `Bounds combine Poisson noise + IHR uncertainty (1.3–1.9%).`;
+    note.className = "live-note";
     note.style.display = "block";
   }
 
+  const err = $("prevalence_error");
+  if (err) err.style.display = "none";
+
   render();
+}
+
+function showPrevalenceError(err) {
+  const note = $("prevalence_live_note");
+  if (note) note.style.display = "none";
+  const errEl = $("prevalence_error");
+  if (errEl) {
+    errEl.innerHTML = `<strong>Could not load SF prevalence data:</strong> `
+      + `${err.message}. Results are not displayed until live data loads. `
+      + `<button type="button" id="prevalence_retry">Retry</button>`;
+    errEl.style.display = "block";
+    $("prevalence_retry")?.addEventListener("click", loadPrevalence);
+  }
+}
+
+async function loadPrevalence() {
+  const note = $("prevalence_live_note");
+  if (note) {
+    note.textContent = "Loading SF prevalence data…";
+    note.className = "live-note loading";
+    note.style.display = "block";
+  }
+  const err = $("prevalence_error");
+  if (err) err.style.display = "none";
+  try {
+    const est = await fetchSfPrevalence();
+    applyLivePrevalence(est);
+  } catch (e) {
+    showPrevalenceError(e);
+  }
 }
 
 // --- Wire up ----------------------------------------------------------
@@ -657,10 +722,17 @@ function init() {
   }
 
   $("reset_defaults").addEventListener("click", () => {
+    // Preserve fetched prevalence across reset so we don't re-fetch.
+    const fetchedPrev = state.prev.community_infectious_low != null ? {
+      community_infectious_low: state.prev.community_infectious_low,
+      community_infectious_high: state.prev.community_infectious_high,
+    } : null;
     state = freshState();
+    if (fetchedPrev) Object.assign(state.prev, fetchedPrev);
     baselineState = null;
     stateToForm();
     $("ic_preset").value = "regimented";
+    $("seating_preset").value = "rows";
     history.replaceState(null, "", location.pathname);
     render();
   });
@@ -690,10 +762,10 @@ function init() {
 
   render();
 
-  // Fetch live SF prevalence data (async, updates after initial render)
-  fetchSfPrevalence().then(est => {
-    if (est) applyLivePrevalence(est);
-  });
+  // Live SF prevalence is REQUIRED before any result tables are shown.
+  // loadPrevalence() shows a loading indicator, then either populates the
+  // state (and re-renders) or shows an error with a retry button.
+  loadPrevalence();
 }
 
 init();
