@@ -15,7 +15,9 @@
   <main class="evidence">
     <article>
       <h2>Room volume (m&sup3;)</h2>
-      <p><strong>Default value:</strong> 10,000 m&sup3;</p>
+      <p><strong>Default value:</strong> 2,000 m&sup3; (approx. geometric volume
+        of a 50&nbsp;&times;&nbsp;50&nbsp;&times;&nbsp;10&nbsp;ft main floor plus
+        a sizable stage and a balcony cavity extending ~35&nbsp;ft to the ceiling).</p>
 
       <h3>How it affects the model</h3>
       <p>Room volume appears in the steady-state quanta concentration:</p>
@@ -84,8 +86,12 @@
       <p>The model assumes uniform quanta concentration throughout the room.
         <a href="https://www.rehva.eu/rehva-journal/chapter/ventilation-rate-and-room-size-effects-on-infection-risk-of-covid-19">REHVA guidance</a>
         states this is reasonable for rooms up to ~300&nbsp;m&sup3; with ceilings
-        up to 4&nbsp;m. Our default of 10,000&nbsp;m&sup3; substantially exceeds
-        this threshold &mdash; one reason the model now adds a separate
+        up to 4&nbsp;m. Our default of 2,000&nbsp;m&sup3; substantially exceeds
+        this threshold, and tall halls with low main-floor ceilings and high
+        balcony cavities additionally tend to stratify thermally &mdash; warm
+        exhaled air rises into the upper volume, reducing the effective
+        well-mixed volume for breathing-zone exposure. One reason the model
+        now adds a separate
         <a href="close-contact.html">near-field exposure term</a> that does not
         depend on room volume.</p>
       <p><a href="https://doi.org/10.1038/s44172-024-00297-y">Geisler et al. (2024)</a>

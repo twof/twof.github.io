@@ -263,7 +263,7 @@ export const DEFAULT_CLOSE_CONTACT_DISTANCE_M = 1.0;
 export const DEFAULT_EVENT = {
   attendees: 100,
   duration_hours: 2.0,
-  room_volume_m3: 10000.0,
+  room_volume_m3: 2000.0,
   air_changes_per_hour: 3.0,
   breathing_rate_m3_per_hour: 0.5,
   activities: DEFAULT_ACTIVITIES.map(a => ({ ...a })),

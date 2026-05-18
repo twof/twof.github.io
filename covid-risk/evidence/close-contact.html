@@ -93,18 +93,18 @@
         <code>Q_mouth = 1.0</code> sits within that physical range.</p>
 
       <h3>What the new term changes</h3>
-      <p>At the calculator&rsquo;s defaults (100 attendees, 10,000 m&sup3;,
-        ACH 3, 4 close at 1 m, no masks), the near-field component
-        dominates total dose because the large well-ventilated hall heavily
-        suppresses the far-field contribution but leaves the near-field
-        contribution unchanged.</p>
+      <p>At the calculator&rsquo;s defaults (100 attendees, 2,000 m&sup3;,
+        ACH 3, 4 close at 1 m, no masks), the near-field component still
+        accounts for the majority of total dose because the room is
+        comfortably above the 300&nbsp;m&sup3; well-mixed validity threshold
+        but the close-range plume exposure does not dilute either way.</p>
       <p>More importantly, the near-field term decouples total risk from
-        room volume. Doubling the room volume reduces the far-field
-        component by half but leaves the near-field component unchanged
-        &mdash; total risk drops only a few percent rather than ~50%.
-        This addresses a long-standing limitation of the well-mixed Wells-
-        Riley model that has been increasingly criticized in the literature
-        since 2021.</p>
+        room volume. Doubling the room volume halves the far-field
+        component but leaves the near-field component unchanged &mdash;
+        total risk drops far less than the well-mixed-only model would
+        predict. This addresses a long-standing limitation of the
+        well-mixed Wells-Riley model that has been increasingly criticized
+        in the literature since 2021.</p>
 
       <h3>Seating presets</h3>
       <p>The seating preset dropdown pre-fills typical close-contact counts
