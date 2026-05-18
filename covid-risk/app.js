@@ -577,11 +577,10 @@ function readUrlParams() {
 
 // --- Live prevalence from SF hospitalization data ---------------------
 
-const AVERAGING_WEEKS = 8;
+const AVERAGING_WEEKS = 4;
 const SF_HOSP_API = "https://data.sfgov.org/resource/ppwr-akuv.json"
   + "?$where=respiratory_virus='COVID-19'"
   + `&$order=week_end_date DESC&$limit=${AVERAGING_WEEKS}`;
-const SF_POP = 836321;
 const INFECTIOUS_DAYS = 7;
 // IHR range: fraction of all infections (including asymptomatic) that
 // result in hospitalization. Lower IHR → more infections per hosp →
@@ -607,23 +606,12 @@ async function fetchSfPrevalence() {
     throw new Error(`SF DataSF returned only ${rates.length} of ${AVERAGING_WEEKS} weeks`);
   }
 
-  // Total admissions over the window; gives us the count for Poisson noise.
   const avgRate = rates.reduce((a, b) => a + b, 0) / rates.length;
-  const totalAdmits = avgRate * rates.length * SF_POP / 1e5;
-  // 95% Poisson CI on the count (normal approximation, n>=8 ample).
-  const z = 1.96;
-  const lowerN = Math.max(0, totalAdmits - z * Math.sqrt(totalAdmits));
-  const upperN = totalAdmits + z * Math.sqrt(totalAdmits);
-  const rateLow95 = lowerN / rates.length / SF_POP * 1e5;
-  const rateHigh95 = upperN / rates.length / SF_POP * 1e5;
-
-  // Combine Poisson noise (low/high admission rate) with IHR uncertainty
-  // (low/high IHR). Lower prevalence ⇐ low admissions × high IHR.
-  const low  = (rateLow95 / IHR_HIGH) * (INFECTIOUS_DAYS / 7) / 1e5;
-  const high = (rateHigh95 / IHR_LOW) * (INFECTIOUS_DAYS / 7) / 1e5;
+  const low  = (avgRate / IHR_HIGH) * (INFECTIOUS_DAYS / 7) / 1e5;
+  const high = (avgRate / IHR_LOW)  * (INFECTIOUS_DAYS / 7) / 1e5;
 
   const dataAsOf = rows[0].week_end_date?.slice(0, 10) || null;
-  return { low, high, dataAsOf, avgRate, totalAdmits, weeks: rates.length };
+  return { low, high, dataAsOf, avgRate, weeks: rates.length };
 }
 
 function applyLivePrevalence(est) {
@@ -636,8 +624,8 @@ function applyLivePrevalence(est) {
   if (note) {
     note.innerHTML = `<strong>SF live data:</strong> `
       + `${est.avgRate.toFixed(2)} admissions/100K/wk averaged over `
-      + `${est.weeks} weeks (${est.totalAdmits.toFixed(0)} total admits, data through ${est.dataAsOf}). `
-      + `Bounds combine Poisson noise + IHR uncertainty (1.3–1.9%).`;
+      + `${est.weeks} weeks (data through ${est.dataAsOf}). `
+      + `Bounds reflect IHR uncertainty (1.3–1.9%).`;
     note.className = "live-note";
     note.style.display = "block";
   }
