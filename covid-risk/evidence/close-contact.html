@@ -32,23 +32,58 @@
         two-stage exhaled-jet dilution model.</p>
 
       <h3>Mathematical form</h3>
-      <p>The total per-event Poisson exposure rate is the sum of two terms:</p>
-      <p><code>rate_total = rate_far + rate_near</code></p>
+      <p>Each peer contributes an independent infection-or-not draw. Marginalizing
+        over whether each peer happens to be infectious gives the per-source
+        marginal probability and a binomial combination across peers:</p>
       <ul>
-        <li><code>rate_far = (attendees - 1) &middot; p_inf &middot; D_far</code>
-          where <code>D_far</code> is the existing well-mixed Wells-Riley
-          per-source dose: <code>q &middot; t &middot; b &middot; transient(t, ACH) / (ACH &middot; V)</code>.</li>
-        <li><code>rate_near = N_close &middot; p_inf &middot; D_near</code>
-          where <code>D_near = q &middot; t &middot; b / (Q_mouth &middot; S(L))</code>
+        <li><strong>Per far-only-peer infection probability:</strong>
+          <code>p_inf &middot; (1 &minus; exp(&minus;D_far))</code>, where
+          <code>D_far = q &middot; t &middot; b &middot; transient(t, k_removal) / (k_removal &middot; V)</code>
+          and <code>k_removal = ACH + k_decay</code> includes both ventilation
+          and quanta viability decay.</li>
+        <li><strong>Per close-contact-peer infection probability:</strong>
+          <code>p_inf &middot; (1 &minus; exp(&minus;(D_far + D_near)))</code>, where
+          <code>D_near = q &middot; t &middot; b / (Q_mouth &middot; S(L))</code>
           and <code>S(L)</code> is the jet dilution factor at distance
-          <code>L</code> from the emitter's mouth.</li>
+          <code>L</code> from the emitter's mouth. Viability decay does not
+          apply to <code>D_near</code> because jet transit time is sub-second.</li>
+        <li><strong>Per-event probability:</strong> binomial product across
+          <code>N_far</code> far peers and <code>N_close</code> close-contact
+          peers, then negated:
+          <code>P(inf) = 1 &minus; (1 &minus; p_far)<sup>N_far</sup> &middot; (1 &minus; p_close)<sup>N_close</sup></code>.</li>
       </ul>
-      <p>Per-event probability: <code>P(inf) = 1 &minus; exp(&minus;rate_total)</code>.</p>
+      <p>This formulation reduces to the previous Poisson rate
+        <code>1 &minus; exp(&minus;rate_total)</code> in the small-risk limit
+        (which covers all realistic event durations), but plateaus correctly
+        at <code>1 &minus; (1 &minus; p_inf)<sup>N&minus;1</sup></code> &mdash;
+        the probability that any peer is infectious &mdash; as duration grows
+        large. The earlier Poisson form diverged toward 1 at very long
+        durations and was a mathematical defect rather than physical reality.</p>
       <p>Receiver-side mask filtration and source-side mask emission
         reduction apply identically to both terms (the same physics filters
         particles regardless of geometry). The eating-time mask-removal
         split that the model already applies for the far-field term applies
         to the near-field term too.</p>
+
+      <h3>Quanta viability decay</h3>
+      <p>Aerosolized SARS-CoV-2 loses infectivity over time independent of
+        ventilation. The model adds a constant decay rate
+        <code>k_decay = 0.63 / hr</code> (half-life ~1.1 hr) to the far-field
+        removal rate, so quanta concentration scales as
+        <code>q / ((ACH + k_decay) &middot; V)</code> rather than
+        <code>q / (ACH &middot; V)</code>. At default ACH = 3, this reduces
+        far-field dose by ~17%; at lower ACH the relative effect is larger,
+        so the decay term keeps poorly-ventilated rooms from looking
+        catastrophic in the model.</p>
+      <p>Sources:</p>
+      <ul>
+        <li><a href="https://doi.org/10.1056/NEJMc2004973">van Doremalen et al.
+          2020 (NEJM):</a> aerosolized SARS-CoV-2 half-life ~1.1 hr at
+          21&ndash;23&deg;C, 65% RH.</li>
+        <li><a href="https://doi.org/10.1080/02786826.2020.1829536">Dabisch et al.
+          2021 (Aerosol Sci Technol):</a> half-life 0.5&ndash;2 hr indoors
+          depending on humidity / temperature; UV reduces dramatically.</li>
+      </ul>
 
       <h3>Jet dilution table (Jia et al. 2022)</h3>
       <p>The dilution factor <code>S(L)</code> is the ratio of mouth-orifice

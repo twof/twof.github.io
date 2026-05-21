@@ -257,6 +257,15 @@ export function jetDilutionFactor(distance_m) {
 // a typical classroom). See evidence/close-contact.html.
 export const MOUTH_EXHALATION_VOLUME_RATE = 1.0;
 
+// Quanta viability decay (per hour) for aerosolized SARS-CoV-2 indoors,
+// independent of ventilation. van Doremalen et al. 2020 (NEJM): half-life
+// ~1.1 hr at 21-23°C, 65% RH → k = 0.63/hr. Dabisch et al. 2021 (Aerosol
+// Sci Technol): half-life varies 0.5-2 hr by humidity/temperature; UV
+// sunlight reduces dramatically. We use a conservative indoor anchor.
+// Applied to the far-field removal rate (alongside ACH); near-field jet
+// transit time (<1 s) makes decay negligible at close range.
+export const VIABILITY_DECAY_PER_HR = 0.63;
+
 export const DEFAULT_CLOSE_CONTACTS_PER_ATTENDEE = 4;
 export const DEFAULT_CLOSE_CONTACT_DISTANCE_M = 1.0;
 
@@ -391,10 +400,15 @@ export function perEventInfectionProb(event, prev, mask_filtration, {
     + (1 - eatingFrac) * qRest * restFactor;
 
   // --- Far-field (well-mixed Wells-Riley) ----------------------------
+  // Effective removal rate combines ventilation (ACH) with quanta viability
+  // decay (van Doremalen 2020). Decay is independent of ventilation and
+  // applies to material aged in room air; it does not apply to the
+  // near-field jet (sub-second transit from mouth to receiver).
   const ach = Math.max(event.air_changes_per_hour, 0.01);
+  const kRemoval = ach + VIABILITY_DECAY_PER_HR;
   const farBase = event.duration_hours * event.breathing_rate_m3_per_hour
-    * transientDoseFactor(event.duration_hours, ach)
-    / (ach * event.room_volume_m3);
+    * transientDoseFactor(event.duration_hours, kRemoval)
+    / (kRemoval * event.room_volume_m3);
   const farDose = farBase * (1 - hybrid_immunity) * combinedQuanta(
     1.0,                                            // eating: no masks
     sourceEmissionFactor * (1 - mask_filtration),   // non-eating: masks
@@ -405,8 +419,11 @@ export function perEventInfectionProb(event, prev, mask_filtration, {
   //   C_local = q_emit / (Q_mouth * S(L))
   // Receiver inhalation dose per close-contact emitter over the event:
   //   nearDose = duration * breathing_rate * C_local
-  // (no transient-buildup correction: close-range plume is steady-state).
-  const nClose = Math.max(event.close_contacts_per_attendee || 0, 0);
+  // (no transient-buildup correction: close-range plume is steady-state.
+  // no viability decay: jet transit time is sub-second.)
+  const peers = Math.max(0, event.attendees - 1);
+  const nClose = Math.min(peers, Math.max(event.close_contacts_per_attendee || 0, 0));
+  const nFar = peers - nClose;
   const closeDist = Math.max(event.close_contact_distance_m
     || DEFAULT_CLOSE_CONTACT_DISTANCE_M, 0.1);
   const nearBase = nClose > 0
@@ -418,14 +435,19 @@ export function perEventInfectionProb(event, prev, mask_filtration, {
     sourceEmissionFactor * (1 - mask_filtration),
   );
 
+  // Per-source marginal infection probability: p × (1 - exp(-dose)).
+  // Aggregate using the binomial form so the result plateaus correctly
+  // at P(at least one infectious peer present) as duration → ∞.
   const probs = [];
   for (const pComm of [prev.community_infectious_low, prev.community_infectious_high]) {
     const pEventAttendee = pComm
       * attendableFraction(prev.symptomatic_attendance)
       * peerVaxPrevalenceFactor(currentVaxFraction, event.ve_infection);
-    const farRate = (event.attendees - 1) * pEventAttendee * farDose;
-    const nearRate = nClose * pEventAttendee * nearDose;
-    probs.push(1 - Math.exp(-(farRate + nearRate)));
+    const pInfectGivenFarSource = pEventAttendee * (1 - Math.exp(-farDose));
+    const pInfectGivenCloseSource = pEventAttendee * (1 - Math.exp(-(farDose + nearDose)));
+    const pNoInfection = Math.pow(1 - pInfectGivenFarSource, nFar)
+      * Math.pow(1 - pInfectGivenCloseSource, nClose);
+    probs.push(1 - pNoInfection);
   }
   return [Math.min(...probs), Math.max(...probs)];
 }
@@ -450,9 +472,10 @@ export function doseDecomposition(event, mask_filtration, {
     + (1 - eatingFrac) * qRest * sourceEmissionFactor * (1 - mask_filtration);
 
   const ach = Math.max(event.air_changes_per_hour, 0.01);
+  const kRemoval = ach + VIABILITY_DECAY_PER_HR;
   const farBase = event.duration_hours * event.breathing_rate_m3_per_hour
-    * transientDoseFactor(event.duration_hours, ach)
-    / (ach * event.room_volume_m3);
+    * transientDoseFactor(event.duration_hours, kRemoval)
+    / (kRemoval * event.room_volume_m3);
   const farDosePerPeer = farBase * (1 - hybrid_immunity) * combined;
 
   const nClose = Math.max(event.close_contacts_per_attendee || 0, 0);
