@@ -11,7 +11,7 @@ import {
   quantaPerHour, transientDoseFactor,
   blendedSourceEmissionFactor, blendedCurrentVaxFraction,
   peerVaxPrevalenceFactor,
-  expectedIcAttendees,
+  expectedIcAttendees, effectiveInfectiousDays,
   perEventInfectionProb, aggregateEventRisk,
   fmtProb, fmtRange,
 } from "./model.js";
@@ -294,6 +294,22 @@ function fmtNum(v, digits = 2) {
 function render() {
   formToState();
 
+  // If live SF data is loaded, re-derive prevalence whenever event
+  // demographics (age distribution or IC self-selection) have changed
+  // since the last derivation. We compare against lastAppliedEffDays so
+  // manual edits to community_infectious_{low,high} aren't clobbered.
+  if (livePrevalenceRaw) {
+    const normAge = normalizeMix({ ...state.age_distribution });
+    const effDays = effectiveInfectiousDays({
+      age_distribution: normAge,
+      self_selection: state.self_selection,
+    });
+    if (lastAppliedEffDays === null
+        || Math.abs(effDays - lastAppliedEffDays) > 1e-9) {
+      refreshLivePrevalence();
+    }
+  }
+
   // Normalize mixes for calculation but preserve raw inputs in the form.
   const icMaskMix = normalizeMix({ ...state.ic_mask_mix });
   const icVaxMix = normalizeMix({ ...state.ic_vax_mix });
@@ -537,13 +553,18 @@ const SF_HOSP_API = "https://data.sfgov.org/resource/ppwr-akuv.json"
   + "?$where=respiratory_virus='COVID-19'"
   + "&$order=week_end_date DESC&$limit=8";
 const SF_POP = 836321;
-const INFECTIOUS_DAYS = 7;
 // IHR range: fraction of all infections (including asymptomatic) that
 // result in hospitalization. Lower IHR → more infections per hosp → higher
 // prevalence estimate. We use this range to produce low/high bounds.
 const IHR_HIGH = 0.019;  // fewer inferred infections → low prevalence
 const IHR_LOW  = 0.013;  // more inferred infections → high prevalence
 const AVERAGING_WEEKS = 4;
+
+// Raw hospitalization rate from the most recent SF DataSF fetch. We hold
+// onto this so we can re-derive prevalence whenever event demographics
+// change (age distribution or IC self-selection), without re-fetching.
+let livePrevalenceRaw = null;
+let lastAppliedEffDays = null;
 
 async function fetchSfPrevalence() {
   try {
@@ -552,40 +573,61 @@ async function fetchSfPrevalence() {
     const rows = await resp.json();
     if (!rows.length) return null;
 
-    // Use the most recent AVERAGING_WEEKS weeks with data
     const rates = rows
       .slice(0, AVERAGING_WEEKS)
       .map(r => parseFloat(r.admission_rate_per_100k));
     if (rates.some(r => !Number.isFinite(r))) return null;
 
     const avgRate = rates.reduce((a, b) => a + b, 0) / rates.length;
-    // avgRate = weekly hospitalizations per 100K
-    // weekly infections per 100K = avgRate / IHR
-    // point prevalence = weekly infections * (infectious_days/7) / 100K
-    const low  = (avgRate / IHR_HIGH) * (INFECTIOUS_DAYS / 7) / 1e5;
-    const high = (avgRate / IHR_LOW)  * (INFECTIOUS_DAYS / 7) / 1e5;
-
     const dataAsOf = rows[0].week_end_date?.slice(0, 10) || null;
-    return { low, high, dataAsOf, avgRate, weeks: rates.length };
+    return { avgRate, dataAsOf, weeks: rates.length };
   } catch {
     return null;
   }
 }
 
-function applyLivePrevalence(est) {
-  state.prev.community_infectious_low = est.low;
-  state.prev.community_infectious_high = est.high;
-  setInputValue("community_infectious_low", est.low);
-  setInputValue("community_infectious_high", est.high);
+// Compute event-specific prevalence bounds from the cached SF admission
+// rate plus the event's effective infectious duration (which folds in age
+// distribution and IC self-selection). Math:
+//   weekly_infections_per_100k = avgRate / IHR
+//   point prevalence = weekly_infections * (effective_days / 7) / 100K
+function refreshLivePrevalence() {
+  if (!livePrevalenceRaw) return;
+  const normAge = (() => {
+    const s = Object.values(state.age_distribution).reduce((a, b) => a + b, 0);
+    if (s <= 0) return { ...DEFAULT_AGE_DISTRIBUTION };
+    const out = {};
+    for (const [k, v] of Object.entries(state.age_distribution)) out[k] = v / s;
+    return out;
+  })();
+  const effDays = effectiveInfectiousDays({
+    age_distribution: normAge,
+    self_selection: state.self_selection,
+  });
+  const { avgRate, dataAsOf } = livePrevalenceRaw;
+  const low  = (avgRate / IHR_HIGH) * (effDays / 7) / 1e5;
+  const high = (avgRate / IHR_LOW)  * (effDays / 7) / 1e5;
+  state.prev.community_infectious_low = low;
+  state.prev.community_infectious_high = high;
+  setInputValue("community_infectious_low", low);
+  setInputValue("community_infectious_high", high);
+  lastAppliedEffDays = effDays;
 
   const note = $("prevalence_live_note");
   if (note) {
     note.textContent = `Auto-populated from SF hospital admissions `
-      + `(${AVERAGING_WEEKS}-week avg: ${est.avgRate.toFixed(2)}/100K/wk, `
-      + `data through ${est.dataAsOf})`;
+      + `(${AVERAGING_WEEKS}-week avg: ${avgRate.toFixed(2)}/100K/wk, `
+      + `data through ${dataAsOf}). Effective infectious duration `
+      + `${effDays.toFixed(2)} days, weighted by age distribution and IC `
+      + `self-selection.`;
     note.style.display = "block";
   }
+}
 
+function applyLivePrevalence(raw) {
+  livePrevalenceRaw = raw;
+  lastAppliedEffDays = null;
+  refreshLivePrevalence();
   render();
 }
 
