@@ -44,35 +44,71 @@
         substantially lower than the population average.</p>
 
       <h4>Vaccine effectiveness against hospitalization</h4>
-      <p>CDC IVY Network data (September 2024&ndash;April 2025) from
-        <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC12424867/">Surie
-        et al. (2025)</a>:</p>
+      <p>Two CDC test-negative VE studies anchor the current-season vaccine
+        effect:</p>
       <table class="grid">
-        <thead><tr><th>Population</th><th>VE against hospitalization</th></tr></thead>
+        <thead><tr><th>Source</th><th>Season</th><th>Population</th><th>VE against hospitalization</th></tr></thead>
         <tbody>
-          <tr><td>Immunocompetent adults &ge;18</td><td>45&ndash;46%</td></tr>
-          <tr><td>Immunocompromised adults &ge;65</td><td>36&ndash;40%</td></tr>
+          <tr>
+            <td><a href="https://doi.org/10.1001/jamanetworkopen.2026.25152">Wiegand
+              et al. (2026)</a></td>
+            <td>2025&ndash;2026 (JN.1/LP.8.1 vaccine)</td>
+            <td>Immunocompetent &ge;18 (VISION network, n=26,073)</td>
+            <td><strong>55%</strong> (41&ndash;66%)</td>
+          </tr>
+          <tr>
+            <td><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC12424867/">Surie
+              et al. (2025)</a></td>
+            <td>2024&ndash;2025 (KP.2 vaccine)</td>
+            <td>Immunocompetent &ge;18 (IVY network)</td>
+            <td>45&ndash;46%</td>
+          </tr>
+          <tr>
+            <td>Surie et al.</td>
+            <td>2024&ndash;2025</td>
+            <td>Immunocompromised &ge;65 (IVY network)</td>
+            <td>36&ndash;40%</td>
+          </tr>
         </tbody>
       </table>
+      <p>The current model uses Wiegand&rsquo;s 55% as the
+        <em>current-season</em> anchor &mdash; it&rsquo;s the most recent
+        data point, measured against an antigenically well-matched
+        circulating lineage mix (XFG, descended from JN.1), at median 46
+        days post-dose. The Surie 2024&ndash;2025 estimate sits within
+        Wiegand&rsquo;s 95% CI (41&ndash;66%), so the choice is at the
+        higher end of the consensus band rather than an outlier.</p>
+      <p>Wiegand&rsquo;s reference group included recipients of older
+        COVID-19 vaccines as well as fully unvaccinated individuals, so
+        the 55% should be read as the <strong>added benefit of the
+        2025&ndash;2026 dose beyond existing immunity</strong>, not as
+        absolute VE versus naive baseline. This is the correct framing for
+        the model&rsquo;s vax_current vs none comparison &mdash; both
+        groups include people whose underlying hybrid immunity differs.</p>
 
       <h4>Non-IC model values</h4>
       <p>The 18&ndash;49 all-vaccination-status IHR is ~0.32%. Decomposing
-        by vaccination status using VE against hospitalization (45%
-        current-season, ~15% older vaccination) and adjusting for
-        &ldquo;for COVID&rdquo; vs &ldquo;with COVID&rdquo; admissions
-        (~65% primary diagnosis) gives:</p>
+        by vaccination status using VE against hospitalization (55%
+        current-season per Wiegand 2026, ~15% older vaccination) and
+        adjusting for &ldquo;for COVID&rdquo; vs &ldquo;with COVID&rdquo;
+        admissions (~65% primary diagnosis) gives:</p>
       <table class="grid">
         <thead><tr><th>Vaccination status</th><th>P(hosp | infection)</th><th>Derivation</th></tr></thead>
         <tbody>
           <tr>
             <td>Current-season vax</td>
-            <td>0.10%</td>
-            <td>0.27% &times; (1 &minus; 0.45) &times; 0.65 &asymp; 0.10%</td>
+            <td>0.135%</td>
+            <td>0.30% &times; (1 &minus; 0.55) = 0.135%; anchored
+              directly to Wiegand&rsquo;s 55% VE vs the &ldquo;none&rdquo;
+              row.</td>
           </tr>
           <tr>
             <td>Older vaccination</td>
             <td>0.15%</td>
-            <td>0.27% &times; (1 &minus; 0.15) &times; 0.65 &asymp; 0.15%</td>
+            <td>0.27% &times; (1 &minus; 0.15) &times; 0.65 &asymp; 0.15%.
+              Wiegand cannot directly inform this row because the study&rsquo;s
+              reference group included older-vax recipients; we retain the
+              prior-season waned-immunity estimate.</td>
           </tr>
           <tr>
             <td>Unvaccinated</td>
@@ -277,6 +313,10 @@
         <li><a href="https://www.sciencedirect.com/science/article/pii/S016344532500026X">Quint
           et al. (2025)</a> &mdash; INFORM 2023 update, continued elevated
           IC risk (Journal of Infection)</li>
+        <li><a href="https://doi.org/10.1001/jamanetworkopen.2026.25152">Wiegand
+          et al. (2026)</a> &mdash; Interim 2025&ndash;2026 VE against
+          ED/UC encounters and hospitalization, VISION Network (JAMA
+          Network Open)</li>
         <li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC12424867/">Surie
           et al. (2025)</a> &mdash; 2024&ndash;2025 VE against
           hospitalization, IVY Network (PMC)</li>
