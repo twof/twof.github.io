@@ -266,6 +266,55 @@ export function attendableFraction(symptomaticAttendanceRate) {
 
 export const DEFAULT_SYMPTOMATIC_ATTENDANCE = 0.0;
 
+// Culturable virus shedding duration (days) by IC severity tier. Used to
+// weight the prevalence back-calculation against the event's demographic mix.
+// - severe: median ~60 days in transplant, CAR-T, B-cell-depleted, advanced
+//   HIV cohorts (Raglow et al. Lancet Microbe 2024; Aydillo NEJM 2020 viable
+//   virus to 61 days in HSCT/CAR-T).
+// - moderate: ~14 days for active chemotherapy, biologics, hematologic
+//   malignancy without B-cell depletion. Interpolated from Ofae367/OFID 2024
+//   (B-cell-depleted/BTKi: 30% Ct ≤33 beyond day 20; hematologic malignancy
+//   without B-cell depletion: 26%).
+// - mild: ~7 days for well-controlled HIV, low-dose immunosuppressants, mild
+//   biologics. Modest extension over the ~4-day non-IC average.
+export const IC_INFECTIOUS_DAYS = {
+  mild:     7,
+  moderate: 14,
+  severe:   60,
+};
+
+// Population-weighted infectious duration (days) for the event, accounting
+// for the demographic mix (age distribution) and the IC self-selection
+// factor. Used in fetchSfPrevalence to back-calculate prevalence from the
+// SF hospitalization rate. Replaces the prior flat INFECTIOUS_DAYS = 7.
+//
+// Composition: non-IC attendees shed for a weighted average of asymptomatic
+// (3d) + symptomatic (5d) cases; IC attendees shed for substantially longer
+// with severity-specific durations (mild 7d, moderate 14d, severe 60d). For
+// SF defaults (age skewing 18-39, self_selection 0.70), this evaluates to
+// ~4.3 days, vs. the prior flat 7. For IC-skewed events (transplant support
+// meetups, etc.) it can rise above 10.
+export function effectiveInfectiousDays({
+  age_distribution = DEFAULT_AGE_DISTRIBUTION,
+  self_selection = DEFAULT_SELF_SELECTION,
+} = {}) {
+  const nonIcDays = ASYMPTOMATIC_INCIDENCE_FRACTION * ASYMPTOMATIC_INFECTIOUS_DAYS
+    + (1 - ASYMPTOMATIC_INCIDENCE_FRACTION) * SYMPTOMATIC_INFECTIOUS_DAYS;
+
+  let icFracTotal = 0;
+  for (const [band, share] of Object.entries(age_distribution)) {
+    icFracTotal += share * (IC_PREVALENCE_BY_AGE[band] || 0);
+  }
+  icFracTotal *= self_selection;
+
+  const nonIcFrac = 1 - icFracTotal;
+  let icDaysContribution = 0;
+  for (const [sev, share] of Object.entries(IC_SEVERITY_MIX)) {
+    icDaysContribution += icFracTotal * share * IC_INFECTIOUS_DAYS[sev];
+  }
+  return nonIcFrac * nonIcDays + icDaysContribution;
+}
+
 export const DEFAULT_PREVALENCE = {
   community_infectious_low:  0.0004,
   community_infectious_high: 0.0012,
