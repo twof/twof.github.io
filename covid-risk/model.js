@@ -132,9 +132,14 @@ export const GENERAL_IC_VAX_MIX = {
 
 // Derived from CDC COVID-NET 2023-2024 18-49 hospitalization rate
 // (38.9/100K), age-adjusted infection rate (~12%), and VE against
-// hospitalization (45% current, ~15% old). See evidence/hosp-given-infection.html.
+// hospitalization. vax_current anchored to Wiegand et al. JAMA Network
+// Open 2026 (interim 2025-2026 vaccine, VISION network, 55% VE against
+// hospitalization at median 46 days post-dose). vax_old retained at ~15%
+// VE per prior-season waned-immunity estimates; Wiegand cannot directly
+// inform this because its reference group included older-vax recipients.
+// See evidence/hosp-given-infection.html.
 export const P_HOSP_GIVEN_INFECTION_NON_IC = {
-  vax_current: 0.0010,
+  vax_current: 0.00135,
   vax_old:     0.0015,
   none:        0.0030,
 };
